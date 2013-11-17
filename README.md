@@ -1,3 +1,3 @@
-Zyklomatik
+ZyklenAutomatik
 ==========
 Projekt aus der CNCECKE...
