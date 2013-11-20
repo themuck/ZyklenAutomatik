@@ -8,6 +8,16 @@ Pins - Funktion RJ45 (Encoder )
 2- A-
 1- A+
 ---------------
+Pins - Funktion RJ45 (Encoder )
+8- GND
+7- 5V
+6- B+
+5- Arduino 41
+4- Z+
+3- Arduino 39
+2- Arduino 38
+1- A+
+--------------
 Pins - Funktion RJ45 (Endstufe)
 8- GND
 7- Arduino 11 (Status)
@@ -32,8 +42,12 @@ S10- Adruino 51
 S11- Arduino 40 (Encoder Taster)
 S12 - Reset
 
-Encoder A- Arduino 19 
-Encoder B- Arduino 20 
+Encoder A- Arduino 19 Int4
+Encoder B- Arduino 20 Int3
+
+Endschalter - 38
+Endschalter - 39
+Endschalter - 41
 
 LED Status 1- Arduino 50
 LED Status 2- Arduino 51
