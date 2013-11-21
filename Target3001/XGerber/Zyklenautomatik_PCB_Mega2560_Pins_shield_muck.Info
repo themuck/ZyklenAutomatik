@@ -1,5 +1,5 @@
 CAM-Ausgabe für AktuellesProjekt Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.T3001
-Ausgabe am 20. Nov 2013, 22:23h
+Ausgabe am 21. Nov 2013, 12:22h
 AktuellesProjekt erzeugt mit TARGET 16.5.0.36 smart
 Ausgabe erzeugt mit TARGET 3001! V16.5.0.36
 LIEFERANSCHRIFT:
@@ -23,8 +23,6 @@ Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.GTS = 18 = Lötstoppmaske oben   ( 
 Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.GBS = 4 = Lötstoppmaske unten   ( *.GBS )
 Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.GTO = 21 = Bestückungsdruck oben   ( *.GTO )
 Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.GBO = 7 = Bestückungsdruck unten   ( *.GBO )
-Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.PasteTop = 19 = Lötpaste oben   ( *.PasteTop )
-Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.PasteBot = 5 = Lötpaste unten   ( *.PasteBot )
 Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.Apr = TARGET 3001! Blendenliste
 Zyklenautomatik_PCB_Mega2560_Pins_shield_muck.Whl = Eagle kompatible Blendenliste
 
