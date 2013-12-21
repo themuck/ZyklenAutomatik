@@ -49,8 +49,8 @@ Endschalter - 38
 Endschalter - 39
 Endschalter - 41
 
-LED Status 1- Arduino 50
-LED Status 2- Arduino 51
+LED Status 1- Arduino 53
+LED Status 2- Arduino 52
 LED Status 3- Arduino 30
 LED Status 4- Arduino 31
 Summer- Arduino 32
