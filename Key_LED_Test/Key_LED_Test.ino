@@ -1,6 +1,6 @@
 // include the library header
 #include <glcd.h>
-
+#include <bitmaps/ms.h>
 // include the Fonts
 #include <fonts/allFonts.h>
 
@@ -88,9 +88,10 @@ void setup() {
 // encoder pin on interrupt 0 (pin 2)
   attachInterrupt(4, doEncoderA, RISING );
 
+ GLCD.DrawBitmap (ms,25,0);
+ delay(2500);
+ GLCD.ClearScreen();
 
-
- // Select the font for the default text area
   GLCD.SelectFont(SystemFont5x7);
   GLCD.print("ZyklenAutomatik");
   delay(1000);
