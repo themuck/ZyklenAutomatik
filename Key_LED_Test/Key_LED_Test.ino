@@ -32,11 +32,20 @@ int tweeter = 32;
 
 #define encoder0PinA 19
 #define encoder0PinB 20
+
+
 volatile int encoder0Pos = 0;
 unsigned int tmp = 0;
 unsigned int Aold = 1;
 unsigned int Bnew = 0;
 
+#define encoder1PinA 2
+#define encoder1PinB 3
+
+volatile int encoder1Pos = 0;
+unsigned int tmp1 = 0;
+unsigned int Aold1 = 1;
+unsigned int Bnew1 = 0;
 
 void setup() {
   // Initialize the GLCD 
@@ -85,8 +94,15 @@ void setup() {
   
   pinMode(encoder0PinA, INPUT); 
   pinMode(encoder0PinB, INPUT);
-// encoder pin on interrupt 0 (pin 2)
+  pinMode(encoder1PinA, INPUT); 
+  pinMode(encoder1PinB, INPUT);
+
   attachInterrupt(4, doEncoderA, RISING );
+  
+ 
+  attachInterrupt(0, doEncoder1A, CHANGE);
+
+  attachInterrupt(1, doEncoder1B, CHANGE);
 
  GLCD.DrawBitmap (ms,25,0);
  delay(2500);
@@ -165,8 +181,16 @@ void loop() {
     GLCD.CursorTo(0,4);
     GLCD.PrintNumber(encoder0Pos); 
     tmp = encoder0Pos;
-    
-   }
+       }
+       
+         if (tmp1 != encoder1Pos) {
+   
+    GLCD.CursorTo(0,5);
+    GLCD.print("                    ");
+    GLCD.CursorTo(0,5);
+    GLCD.PrintNumber(encoder1Pos); 
+    tmp = encoder1Pos;
+       }
    
    if (LEDstatustest == TRUE)
    {
@@ -199,4 +223,13 @@ void doEncoderA(){
   Aold=digitalRead(encoder0PinA);
   
 }
-
+// Interrupt on A changing state
+void doEncoder1A(){
+  Bnew1^Aold1 ? encoder1Pos++:encoder1Pos--;
+  Aold1=digitalRead(encoder1PinA);
+}
+// Interrupt on B changing state
+void doEncoder1B(){
+  Bnew1=digitalRead(encoder1PinB);
+  Bnew1^Aold1 ? encoder1Pos++:encoder1Pos--;
+}

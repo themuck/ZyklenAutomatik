@@ -45,6 +45,9 @@ S12 - Reset
 Encoder A- Arduino 19 Int4
 Encoder B- Arduino 20 Int3
 
+Externer Encoder A- Arduino 2 Int0
+Externer Encoder B- Arduino 3 Int1
+
 Endschalter - 38
 Endschalter - 39
 Endschalter - 41
