@@ -37,9 +37,9 @@ volatile long encoder1Pos = 0;
 unsigned long tmp1 = 0;
 unsigned int Aold1 = 1;
 unsigned int Bnew1 = 0;
-
+unsigned long tmp2 = 0;
 boolean LEDstatustest = 0;
-
+unsigned long rpm;
 
 
 void setup() {  
@@ -90,7 +90,8 @@ void setup() {
   attachInterrupt(0, doEncoderA, CHANGE); // encoder pin on interrupt 0 (pin 2)
   attachInterrupt(1, doEncoderB, CHANGE); // encoder pin on interrupt 1 (pin 3)
   
-  attachInterrupt(4, doEncoder, RISING ); 
+  attachInterrupt(3, doPotiB, RISING ); 
+
   
     digitalWrite(led1, HIGH);   // sets the LED on
     digitalWrite(led2, HIGH);   // sets the LED on
@@ -103,6 +104,18 @@ void setup() {
 	*/
 	GLCD.SelectFont(SystemFont5x7);
 	GLCD.print("ZyklenAutomatik");
+	
+	GLCD.CursorTo(0,5);
+	GLCD.print("rpm: Encoder Pos:");
+	GLCD.CursorTo(0,3);
+	GLCD.print("Encoder value:");
+	
+	GLCD.CursorTo(0,1);
+	GLCD.print("P:");
+	GLCD.CursorTo(4,1);
+	GLCD.PrintNumber(p+encoder1Pos);
+	
+	
   
  
 }
@@ -119,37 +132,38 @@ static unsigned long v = 0;
 		  encoder1Pos = 0;
 	  }
  }
+ 
+ if(p != p + encoder1Pos){
+	 GLCD.CursorTo(2,1);
+	 GLCD.print("*");
+	 }else { GLCD.CursorTo(2,1);
+	 GLCD.print(" ");}
 	 
- if (!digitalRead (S6)) calc_status = TRUE;
- if (!digitalRead (S5)) calc_status = FALSE;
+	 
+ if (!digitalRead (S6)) {calc_status = TRUE; detachInterrupt(3);}
+ if (!digitalRead (S5)) {calc_status = FALSE;attachInterrupt(3, doPotiB, RISING );}
 	 
  if (calc_status == TRUE)
  {digitalWrite(led1, LOW);
  }else digitalWrite(led1, HIGH);
- 
-   GLCD.CursorTo(0,5);
-   GLCD.print("Motor Encoder value:");
-   GLCD.CursorTo(0,3);
-   GLCD.print("Encoder value:");
-   
-   GLCD.CursorTo(0,1);
-   GLCD.print("P:");
-   GLCD.CursorTo(3,1);
-   GLCD.PrintNumber(p+encoder1Pos);
-   
+ if (tmp2 != spindel_acel_steps) {
    GLCD.CursorTo(0,2);
    GLCD.print("Accel:");
+   GLCD.print("               ");
    GLCD.CursorTo(7,2);
    GLCD.PrintNumber(spindel_acel_steps);
+    tmp2 =spindel_acel_steps;
+ }
    
-   
-   if (tmp != encoder0Pos) {
+   if (tmp != rpm) {
 	   
 	   GLCD.CursorTo(0,6);
 	   GLCD.print("                    ");
 	   GLCD.CursorTo(0,6);
-	   GLCD.PrintNumber(encoder0Pos);
-	   tmp = encoder0Pos;
+	   GLCD.PrintNumber(rpm);
+	   GLCD.CursorTo(15,6);
+	   GLCD.PrintNumber(encoderWPos/100);
+	   tmp = rpm;
    }
    if (tmp1 != encoder1Pos) {
 	   
@@ -157,11 +171,12 @@ static unsigned long v = 0;
 	   GLCD.print("                    ");
 	   GLCD.CursorTo(0,4);
 	   GLCD.PrintNumber(encoder1Pos);
+	   
 	   tmp1 = encoder1Pos;
    }
     
     
-  
+  rpm =  (spindel_puls_s*60)/(4*(resolution/100)) ;
     
     ulMillisHelp = millis();
     if(ulTimeHelp <= ulMillisHelp)
@@ -275,10 +290,9 @@ if (calc_status == FALSE)
   }  
 }
 
-void doEncoder(){
-	Bnew=digitalRead(encoder1PinB);
-	Bnew^Aold ? encoder1Pos--:encoder1Pos++;
+void doPotiB(){
 	Aold=digitalRead(encoder1PinA);
-
-	
+	Bnew^Aold ? encoder1Pos++:encoder1Pos--;
+	Bnew=digitalRead(encoder1PinB);
 }
+
