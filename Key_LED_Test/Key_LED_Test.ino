@@ -1,6 +1,14 @@
+
+/* 
+...glcd\config\ks0108_Mega.h change Chip Select 
+#define glcdCSEL1     34    // CS1 Bit  
+#define glcdCSEL2     33    // CS2 Bit
+*/
+
+
 // include the library header
 #include <glcd.h>
-#include <bitmaps/ms.h>
+
 // include the Fonts
 #include <fonts/allFonts.h>
 
@@ -20,8 +28,8 @@ int encoder = 40;
 boolean LEDstatustest = 0;
 
 
-int led1 = 53;
-int led2 = 52;
+int led2 = 53;
+int led1 = 52;
 int led3 = 30;
 int led4 = 31;
 
@@ -104,8 +112,6 @@ void setup() {
 
   attachInterrupt(1, doEncoder1B, CHANGE);
 
- GLCD.DrawBitmap (ms,25,0);
- delay(2500);
  GLCD.ClearScreen();
 
   GLCD.SelectFont(SystemFont5x7);
@@ -164,7 +170,7 @@ void loop() {
    else if (!digitalRead (down)) {GLCD.print("down pressed");}
    else if (!digitalRead (right)) {GLCD.print("right pressed");}
    else if (!digitalRead (left)) {GLCD.print("left pressed");}
-   else if (!digitalRead (encoder)) {GLCD.print("Encoder pressed"); encoder0Pos = 0;}
+   else if (!digitalRead (encoder)) {GLCD.print("Encoder pressed"); encoder0Pos = 0; encoder1Pos = 0;}
    else  
    { GLCD.CursorTo(0,2);
      GLCD.print("               ");
@@ -174,6 +180,8 @@ void loop() {
   
     GLCD.CursorTo(0,3);
     GLCD.print("Encoder value:");
+    GLCD.CursorTo(0,5);
+   GLCD.print("Motor Encoder value:");    
   if (tmp != encoder0Pos) {
    
     GLCD.CursorTo(0,4);
@@ -182,14 +190,13 @@ void loop() {
     GLCD.PrintNumber(encoder0Pos); 
     tmp = encoder0Pos;
        }
-       
-         if (tmp1 != encoder1Pos) {
+    if (tmp1 != encoder1Pos) {
    
-    GLCD.CursorTo(0,5);
+    GLCD.CursorTo(0,6);
     GLCD.print("                    ");
-    GLCD.CursorTo(0,5);
+    GLCD.CursorTo(0,6);
     GLCD.PrintNumber(encoder1Pos); 
-    tmp = encoder1Pos;
+    tmp1 = encoder1Pos;
        }
    
    if (LEDstatustest == TRUE)
@@ -220,16 +227,22 @@ void loop() {
 void doEncoderA(){
   Bnew=digitalRead(encoder0PinB);
   Bnew^Aold ? encoder0Pos--:encoder0Pos++;
+  Bnew^Aold ? digitalWrite(out2, LOW):digitalWrite(out2, HIGH);
   Aold=digitalRead(encoder0PinA);
+  digitalWrite(led1, LOW);   // sets the LED on
+  digitalWrite(out1, LOW);   // sets the LED on
   
 }
 // Interrupt on A changing state
 void doEncoder1A(){
   Bnew1^Aold1 ? encoder1Pos++:encoder1Pos--;
   Aold1=digitalRead(encoder1PinA);
+  digitalWrite(led2, LOW);   // sets the LED on
+  
 }
 // Interrupt on B changing state
 void doEncoder1B(){
   Bnew1=digitalRead(encoder1PinB);
   Bnew1^Aold1 ? encoder1Pos++:encoder1Pos--;
+  digitalWrite(led2, LOW);   // sets the LED on
 }
