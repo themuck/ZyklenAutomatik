@@ -1,16 +1,16 @@
 #define encoder0PinA 2
 #define encoder0PinB 3
-#define resolution 80000 // Festkommaarithmetik Reolution * 100
-#define fehler_def 40000 // Fehler = resolution/2
+#define resolution 800 // Festkommaarithmetik Reolution 
+#define fehler_def 400 // Fehler = resolution/2
 #define CCW 0
 #define CW 1
 #define TRUE 1
 #define FALSE 0
 #define steps_mm 200 // aus der Rechnungstabelle 
-#define steps_max_acel 80000 //steps/mm^2
+#define steps_max_acel 1600 //steps/mm^2
 #define dirpin  9 //pin fÃƒÂ¼r Richtung
 #define steppin  10 //pin fÃƒÂ¼r Schritt
-#define spindel_steps_help (640000)// aus der Rechnungstabelle 
+#define spindel_steps_help (12800)// aus der Rechnungstabelle 
 
 
 long spindel_acel_steps =0;
@@ -69,7 +69,7 @@ if ( Serial.available())
         v = v * 10 + ch - '0';
         break;
       case 'p':
-        if (resolution >= (v * steps_mm) && calc_status == FALSE)
+        if (resolution >= ((v * steps_mm)/100) && calc_status == FALSE)
         {
         p=v;
         Serial.print("set P=");
@@ -112,8 +112,8 @@ if ( Serial.available())
         ulTimeHelp = (ulMillisHelp + 1000); 
         if ( calc_status == FALSE && steps_pr_counter == 0){      
          steps_pr = (p * steps_mm)/100;
-        spindel_acel_steps = (spindel_puls_s * spindel_puls_s * p )/spindel_steps_help;
-        fehler_acel = spindel_acel_steps/2; // Fehler Berechnung
+          spindel_acel_steps = ((spindel_puls_s * spindel_puls_s * p )/100)/spindel_steps_help;        
+          fehler_acel = spindel_acel_steps/2; // Fehler Berechnung
                }
         
     }
@@ -159,7 +159,7 @@ if (calc_status == FALSE)
 
 
 
-  fehler = fehler-(steps_pr_counter*100);
+  fehler = fehler-(steps_pr_counter);
   if (fehler < 0)
   { Bnew^Aold ? digitalWrite(dirpin, HIGH):digitalWrite(dirpin, LOW);
     digitalWrite(steppin, HIGH);
@@ -205,7 +205,7 @@ if (calc_status == FALSE)
       }      
   }
 }
-  fehler = fehler-(steps_pr_counter*100);
+  fehler = fehler-(steps_pr_counter);
   if (fehler < 0)
   { Bnew^Aold ? digitalWrite(dirpin, HIGH):digitalWrite(dirpin, LOW);
     digitalWrite(steppin, HIGH);

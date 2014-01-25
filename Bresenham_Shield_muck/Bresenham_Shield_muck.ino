@@ -93,7 +93,7 @@ void setup() {
   attachInterrupt(0, doEncoderA, CHANGE); // encoder pin on interrupt 0 (pin 2)
   attachInterrupt(1, doEncoderB, CHANGE); // encoder pin on interrupt 1 (pin 3)
   
-  attachInterrupt(3, doPotiB, CHANGE ); 
+  attachInterrupt(3, doPotiB, RISING ); 
 
 
   
@@ -127,7 +127,7 @@ void loop(){
  if (!digitalRead (encoder)) 
  {
 	 v =p+encoder1Pos;
-	  if (resolution*100 >= (v * steps_mm) && calc_status == FALSE)
+	  if (resolution >= ((v * steps_mm)/100) && calc_status == FALSE)
 	  {
 		  p=v;
 		  encoder1Pos = 0;
@@ -207,9 +207,12 @@ void loop(){
 
 
 void doPotiB(){
-	Aold=digitalRead(encoder1PinA);
-	Bnew^Aold ? encoder1Pos--:encoder1Pos++;
-	Bnew=digitalRead(encoder1PinB);
+	
+ if (digitalRead(encoder1PinA) == digitalRead(encoder1PinB)) {
+	 encoder1Pos--;
+	 } else {
+	 encoder1Pos++;
+ }
 }
 
 

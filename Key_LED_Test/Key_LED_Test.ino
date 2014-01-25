@@ -44,8 +44,7 @@ int tweeter = 32;
 
 volatile int encoder0Pos = 0;
 unsigned int tmp = 0;
-unsigned int Aold = 1;
-unsigned int Bnew = 0;
+
 
 #define encoder1PinA 2
 #define encoder1PinB 3
@@ -105,7 +104,7 @@ void setup() {
   pinMode(encoder1PinA, INPUT); 
   pinMode(encoder1PinB, INPUT);
 
-  attachInterrupt(4, doEncoderA, RISING );
+  attachInterrupt(3, doEncoderA, RISING );
   
  
   attachInterrupt(0, doEncoder1A, CHANGE);
@@ -225,10 +224,14 @@ void loop() {
 
 // Interrupt on A changing state
 void doEncoderA(){
-  Bnew=digitalRead(encoder0PinB);
-  Bnew^Aold ? encoder0Pos--:encoder0Pos++;
-  Bnew^Aold ? digitalWrite(out2, LOW):digitalWrite(out2, HIGH);
-  Aold=digitalRead(encoder0PinA);
+  
+  if (digitalRead(encoder0PinA) == digitalRead(encoder0PinB)) {
+	 encoder0Pos--;
+        digitalWrite(out2, LOW);
+	 } else {
+	 encoder0Pos++;
+          digitalWrite(out2, HIGH);
+ }
   digitalWrite(led1, LOW);   // sets the LED on
   digitalWrite(out1, LOW);   // sets the LED on
   
