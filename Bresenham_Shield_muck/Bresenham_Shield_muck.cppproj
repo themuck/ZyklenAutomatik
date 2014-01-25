@@ -28,15 +28,15 @@
     <BootSegment>0</BootSegment>
     <AsfFrameworkConfig>
       <framework-data>
-  <options />
-  <configurations />
-  <files />
-  <documentation help="" />
-  <offline-documentation help="" />
-  <dependencies>
-    <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.3.0" />
-  </dependencies>
-</framework-data>
+        <options />
+        <configurations />
+        <files />
+        <documentation help="" />
+        <offline-documentation help="" />
+        <dependencies>
+          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.3.0" />
+        </dependencies>
+      </framework-data>
     </AsfFrameworkConfig>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
@@ -614,10 +614,10 @@ location.sketchbook=C:\Users\Malte\Documents\Arduino
     <Folder Include="Visual Micro\" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CFile1.c">
+    <Compile Include="Visual Micro\.Bresenham_Shield_muck.vsarduino.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="Visual Micro\.Bresenham_Shield_muck.vsarduino.h">
+    <Compile Include="ZyklenAutomatik_Config.h">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>

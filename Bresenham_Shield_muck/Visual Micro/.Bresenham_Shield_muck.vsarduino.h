@@ -15,9 +15,9 @@ extern "C" void __cxa_pure_virtual() {;}
 
 //
 //
+void doPotiB();
 void doEncoderA();
 void doEncoderB();
-void doPotiB();
 
 #include "C:\Program Files (x86)\Arduino\hardware\arduino\variants\mega\pins_arduino.h" 
 #include "C:\Program Files (x86)\Arduino\hardware\arduino\cores\arduino\arduino.h"

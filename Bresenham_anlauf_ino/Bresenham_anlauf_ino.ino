@@ -6,11 +6,11 @@
 #define CW 1
 #define TRUE 1
 #define FALSE 0
-#define steps_mm 160 // aus der Rechnungstabelle 
-#define steps_max_acel 20000 //steps/mm^2
-#define dirpin  8 //pin fÃƒÂ¼r Richtung
-#define steppin  9 //pin fÃƒÂ¼r Schritt
-#define spindel_steps_help (steps_max_acel/steps_mm)
+#define steps_mm 200 // aus der Rechnungstabelle 
+#define steps_max_acel 80000 //steps/mm^2
+#define dirpin  9 //pin fÃƒÂ¼r Richtung
+#define steppin  10 //pin fÃƒÂ¼r Schritt
+#define spindel_steps_help (640000)// aus der Rechnungstabelle 
 
 
 long spindel_acel_steps =0;
@@ -111,8 +111,8 @@ if ( Serial.available())
         uiInterruptCountHelp=0;
         ulTimeHelp = (ulMillisHelp + 1000); 
         if ( calc_status == FALSE && steps_pr_counter == 0){      
-        steps_pr = (p * steps_mm)/100;
-        spindel_acel_steps = (unsigned long) (((spindel_puls_s * spindel_puls_s)/(2*(resolution/100)))/(spindel_steps_help))*(p/100); // Berechnung der Beschleunigungsschritte
+         steps_pr = (p * steps_mm)/100;
+        spindel_acel_steps = (spindel_puls_s * spindel_puls_s * p )/spindel_steps_help;
         fehler_acel = spindel_acel_steps/2; // Fehler Berechnung
                }
         

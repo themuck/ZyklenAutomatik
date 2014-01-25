@@ -7,20 +7,24 @@
 
 
 
-long spindel_acel_steps =0;
+ long spindel_acel_steps = 0;
+unsigned int stepper_acel_steps = 0;
+unsigned int acel_steps = 0;
+unsigned int stepper_steps_s = 0;
 long p = 225 ; // Steigung 2mm entspricht 200, 1.06 entspricht 106... !! Bresenham verhÃƒÂ¤ltnisse beachten!!
-long steps_pr = 0 ; // Festkommaarithmetik Steps fÃƒÂ¼r eine Umdrehung des
-long steps_pr_counter = 0; // Zähler für die Belscheinuging 
+int v = 0;
+ long steps_pr = 0 ; // Festkommaarithmetik Steps fÃƒÂ¼r eine Umdrehung des
+ long steps_pr_counter = 0; // Zähler für die Belscheinuging 
 boolean calc_status = FALSE;
 
 
-long fehler_acel = 0 ;
-long fehler = fehler_def; 
+ long fehler_acel = 0 ;
+ long fehler = fehler_def; 
 
 
-volatile long encoder0Pos = 0; //absolut 
-volatile long encoderWPos = 0; //Winkel
-volatile long stepper0Pos; //Position des Schrittmotors in schritten
+long encoder0Pos = 0; //absolut 
+unsigned int encoderWPos = 0; //Winkel
+long stepper0Pos; //Position des Schrittmotors in schritten
 
 boolean _direction; // CCW oder CW 
 boolean _diregtionchanged; //hat die Richtunt gewechselt? Wurde Umkehrspiel kompensiert?
@@ -39,7 +43,7 @@ unsigned int Aold1 = 1;
 unsigned int Bnew1 = 0;
 unsigned long tmp2 = 0;
 boolean LEDstatustest = 0;
-unsigned long rpm;
+unsigned int rpm;
 
 
 void setup() {  
@@ -80,17 +84,17 @@ void setup() {
 	
 	pinMode(dirpin, OUTPUT);
 	pinMode(steppin, OUTPUT);
-	digitalWrite(dirpin, HIGH);       // turn on pullup resistors
-	digitalWrite(steppin, HIGH);       // turn on pullup resistors
 	 pinMode(encoder0PinA, INPUT);
 	 pinMode(encoder0PinB, INPUT);
 	 pinMode(encoder1PinA, INPUT);
 	 pinMode(encoder1PinB, INPUT);
+
 	
   attachInterrupt(0, doEncoderA, CHANGE); // encoder pin on interrupt 0 (pin 2)
   attachInterrupt(1, doEncoderB, CHANGE); // encoder pin on interrupt 1 (pin 3)
   
-  attachInterrupt(3, doPotiB, RISING ); 
+  attachInterrupt(3, doPotiB, CHANGE ); 
+
 
   
     digitalWrite(led1, HIGH);   // sets the LED on
@@ -106,14 +110,11 @@ void setup() {
 	GLCD.print("ZyklenAutomatik");
 	
 	GLCD.CursorTo(0,5);
-	GLCD.print("rpm: Encoder Pos:");
+	GLCD.print("rpm: Steps/U:");
 	GLCD.CursorTo(0,3);
 	GLCD.print("Encoder value:");
 	
-	GLCD.CursorTo(0,1);
-	GLCD.print("P:");
-	GLCD.CursorTo(4,1);
-	GLCD.PrintNumber(p+encoder1Pos);
+
 	
 	
   
@@ -121,17 +122,22 @@ void setup() {
 }
 void loop(){
   //Check each changes in position
-static unsigned long v = 0;
+
 
  if (!digitalRead (encoder)) 
  {
 	 v =p+encoder1Pos;
-	  if (resolution >= (v * steps_mm) && calc_status == FALSE)
+	  if (resolution*100 >= (v * steps_mm) && calc_status == FALSE)
 	  {
 		  p=v;
 		  encoder1Pos = 0;
 	  }
  }
+ 
+ 	GLCD.CursorTo(0,1);
+ 	GLCD.print("P:");
+ 	GLCD.CursorTo(4,1);
+ 	GLCD.PrintNumber(p+encoder1Pos);
  
  if(p != p + encoder1Pos){
 	 GLCD.CursorTo(2,1);
@@ -162,7 +168,7 @@ static unsigned long v = 0;
 	   GLCD.CursorTo(0,6);
 	   GLCD.PrintNumber(rpm);
 	   GLCD.CursorTo(15,6);
-	   GLCD.PrintNumber(encoderWPos/100);
+	   GLCD.PrintNumber(steps_pr);
 	   tmp = rpm;
    }
    if (tmp1 != encoder1Pos) {
@@ -176,16 +182,18 @@ static unsigned long v = 0;
    }
     
     
-  rpm =  (spindel_puls_s*60)/(4*(resolution/100)) ;
-    
+  rpm =  (spindel_puls_s*60)/((resolution)) ;
+  stepper_steps_s = spindel_puls_s * p;
+  
     ulMillisHelp = millis();
     if(ulTimeHelp <= ulMillisHelp)
     {   spindel_puls_s  = uiInterruptCountHelp;
         uiInterruptCountHelp=0;
         ulTimeHelp = (ulMillisHelp + 1000); 
+		
         if ( calc_status == FALSE && steps_pr_counter == 0){      
         steps_pr = (p * steps_mm)/100;
-        spindel_acel_steps = (unsigned long) (((spindel_puls_s * spindel_puls_s)/(2*(resolution/100)))/(spindel_steps_help))*(p/100); // Berechnung der Beschleunigungsschritte
+		spindel_acel_steps = ((spindel_puls_s * spindel_puls_s * p )/100)/spindel_steps_help;
         fehler_acel = spindel_acel_steps/2; // Fehler Berechnung
                }
         
@@ -195,6 +203,16 @@ static unsigned long v = 0;
   
  
 }
+
+
+
+void doPotiB(){
+	Aold=digitalRead(encoder1PinA);
+	Bnew^Aold ? encoder1Pos--:encoder1Pos++;
+	Bnew=digitalRead(encoder1PinB);
+}
+
+
 // Interrupt on A changing state
 void doEncoderA(){
   Bnew^Aold ? encoder0Pos++:encoder0Pos--;
@@ -231,8 +249,7 @@ if (calc_status == FALSE)
  }
 
 
-
-  fehler = fehler-(steps_pr_counter*100);
+  fehler = fehler-(steps_pr_counter);
   if (fehler < 0)
   { Bnew^Aold ? digitalWrite(dirpin, HIGH):digitalWrite(dirpin, LOW);
     digitalWrite(steppin, LOW);
@@ -278,7 +295,7 @@ if (calc_status == FALSE)
       }      
   }
 }
-  fehler = fehler-(steps_pr_counter*100);
+  fehler = fehler-(steps_pr_counter);
   if (fehler < 0)
   { Bnew^Aold ? digitalWrite(dirpin, HIGH):digitalWrite(dirpin, LOW);
     digitalWrite(steppin, LOW);
@@ -289,10 +306,3 @@ if (calc_status == FALSE)
     if(_direction == CCW) stepper0Pos--;
   }  
 }
-
-void doPotiB(){
-	Aold=digitalRead(encoder1PinA);
-	Bnew^Aold ? encoder1Pos++:encoder1Pos--;
-	Bnew=digitalRead(encoder1PinB);
-}
-
