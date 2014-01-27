@@ -112,7 +112,7 @@ if ( Serial.available())
         ulTimeHelp = (ulMillisHelp + 1000); 
         if ( calc_status == FALSE && steps_pr_counter == 0){      
          steps_pr = (p * steps_mm)/100;
-          spindel_acel_steps = ((spindel_puls_s * spindel_puls_s * p )/100)/spindel_steps_help;        
+          spindel_acel_steps = (((spindel_puls_s * spindel_puls_s)/100)/spindel_steps_help)*p;         
           fehler_acel = spindel_acel_steps/2; // Fehler Berechnung
                }
         

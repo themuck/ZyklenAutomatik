@@ -35,15 +35,14 @@
 #define tweeter  32
 
 #define resolution 800 
-#define fehler_def 400 // resolution / 2
 #define CCW 0
 #define CW 1
 #define TRUE 1
 #define FALSE 0
 #define steps_mm 200 // aus der Rechnungstabelle
-#define spindel_steps_help (12800)// aus der Rechnungstabelle
+#define spindel_steps_help (128000)// aus der Rechnungstabelle
 
-#define steps_max_acel 1600 //steps/mm^2
+#define steps_max_acel 16000 //steps/mm^2
 
 #define dirpin  9 //pin fÃ¼r Richtung
 #define steppin  10 //pin fÃ¼r Schritt

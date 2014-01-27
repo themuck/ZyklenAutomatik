@@ -7,43 +7,45 @@
 
 
 
- long spindel_acel_steps = 0;
-unsigned int stepper_acel_steps = 0;
-unsigned int acel_steps = 0;
-unsigned int stepper_steps_s = 0;
+long spindel_acel_steps = 0;
+long stepper_acel_steps = 0;
+long acel_steps = 0;
+long stepper_steps_s = 0;
 long p = 225 ; // Steigung 2mm entspricht 200, 1.06 entspricht 106... !! Bresenham verhÃƒÂ¤ltnisse beachten!!
-int v = 0;
+long v = 0;
  long steps_pr = 0 ; // Festkommaarithmetik Steps fÃƒÂ¼r eine Umdrehung des
  long steps_pr_counter = 0; // Zähler für die Belscheinuging 
 boolean calc_status = FALSE;
 
 
  long fehler_acel = 0 ;
- long fehler = fehler_def; 
+ long fehler = 0; 
 
 
 long encoder0Pos = 0; //absolut 
-unsigned int encoderWPos = 0; //Winkel
+int encoderWPos = 0; //Winkel
 long stepper0Pos; //Position des Schrittmotors in schritten
-
+long stepper0Pos_temp;
 boolean _direction; // CCW oder CW 
 boolean _diregtionchanged; //hat die Richtunt gewechselt? Wurde Umkehrspiel kompensiert?
+boolean stepper_acel_steps_temp;
 
-unsigned long uiInterruptCountHelp=0; // hilfsZÃƒÂ¤her fÃƒÂ¼r die rpm Messung
-unsigned long spindel_puls_s=0; // ZÃƒÂ¤her fÃƒÂ¼r die rpm Messung 
-unsigned long ulTimeHelp, ulMillisHelp;// Zeit speicher fÃƒÂ¼r die Messung
+long uiInterruptCountHelp=0; // hilfsZÃƒÂ¤her fÃƒÂ¼r die rpm Messung
+long spindel_puls_s=0; // ZÃƒÂ¤her fÃƒÂ¼r die rpm Messung 
+long ulTimeHelp, ulMillisHelp;// Zeit speicher fÃƒÂ¼r die Messung
 
 unsigned long tmp = 0;
 unsigned int Aold = 1;
 unsigned int Bnew = 0;
 
-volatile long encoder1Pos = 0;
-unsigned long tmp1 = 0;
+long encoder1Pos = 0;
+long tmp1 = 0;
 unsigned int Aold1 = 1;
 unsigned int Bnew1 = 0;
-unsigned long tmp2 = 0;
+long tmp2 = 0;
 boolean LEDstatustest = 0;
-unsigned int rpm;
+long rpm;
+
 
 
 void setup() {  
@@ -146,9 +148,10 @@ void loop(){
 	 GLCD.print(" ");}
 	 
 	 
- if (!digitalRead (S6)) {calc_status = TRUE; detachInterrupt(3);}
+ if (!digitalRead (S6)) {calc_status = TRUE; detachInterrupt(3);stepper0Pos=0;stepper_acel_steps_temp = FALSE;}
  if (!digitalRead (S5)) {calc_status = FALSE;attachInterrupt(3, doPotiB, RISING );}
 	 
+ 
  if (calc_status == TRUE)
  {digitalWrite(led1, LOW);
  }else digitalWrite(led1, HIGH);
@@ -161,24 +164,30 @@ void loop(){
     tmp2 =spindel_acel_steps;
  }
    
-   if (tmp != rpm) {
+   if (tmp != stepper0Pos) {
 	   
 	   GLCD.CursorTo(0,6);
 	   GLCD.print("                    ");
 	   GLCD.CursorTo(0,6);
-	   GLCD.PrintNumber(rpm);
-	   GLCD.CursorTo(15,6);
-	   GLCD.PrintNumber(steps_pr);
-	   tmp = rpm;
+	   GLCD.PrintNumber(stepper0Pos);
+	   
+	   tmp = stepper0Pos;
    }
-   if (tmp1 != encoder1Pos) {
+   
+   
+   GLCD.CursorTo(15,6);
+   GLCD.PrintNumber(stepper0Pos_temp);
+   
+   
+   
+   if (tmp1 != rpm) {
 	   
 	   GLCD.CursorTo(0,4);
 	   GLCD.print("                    ");
 	   GLCD.CursorTo(0,4);
-	   GLCD.PrintNumber(encoder1Pos);
+	   GLCD.PrintNumber(rpm);
 	   
-	   tmp1 = encoder1Pos;
+	   tmp1 = rpm;
    }
     
     
@@ -193,13 +202,21 @@ void loop(){
 		
         if ( calc_status == FALSE && steps_pr_counter == 0){      
         steps_pr = (p * steps_mm)/100;
-		spindel_acel_steps = ((spindel_puls_s * spindel_puls_s * p )/100)/spindel_steps_help;
-        fehler_acel = spindel_acel_steps/2; // Fehler Berechnung
+		spindel_acel_steps = (((spindel_puls_s * spindel_puls_s)/100)*p/spindel_steps_help);
+		fehler_acel = spindel_acel_steps/2; // Fehler Berechnung
+		fehler = resolution/2;
                }
         
     }
+	
+	  
+	  if (steps_pr_counter >= steps_pr && stepper_acel_steps_temp == FALSE)	{
+		  
+		  stepper0Pos_temp = stepper0Pos;
+		  stepper_acel_steps_temp = TRUE;
+	  }
   
-  
+	
   
  
 }
@@ -219,7 +236,7 @@ void doPotiB(){
 // Interrupt on A changing state
 void doEncoderA(){
   Bnew^Aold ? encoder0Pos++:encoder0Pos--;
-  Bnew^Aold ? encoderWPos = encoderWPos+100:encoderWPos = encoderWPos-100;
+  Bnew^Aold ? encoderWPos++:encoderWPos--;
   Bnew^Aold ? _direction = CW :_direction = CCW ;
   uiInterruptCountHelp++;
   
@@ -227,32 +244,31 @@ void doEncoderA(){
   if (encoderWPos >= resolution  ){encoderWPos = 0; }
   if (encoderWPos < 0){encoderWPos = resolution-1 ;}
  
- if (calc_status == TRUE)
+if (calc_status == TRUE)
 {
-  if( steps_pr > steps_pr_counter)
-  {   fehler_acel = fehler_acel-steps_pr;
-      if (fehler_acel < 0)
-      {
-        steps_pr_counter++;
-        fehler_acel = fehler_acel + spindel_acel_steps;        
-      }     
-  }  
+	if( steps_pr > steps_pr_counter)
+	{   fehler_acel = fehler_acel-steps_pr;
+		if (fehler_acel < 0)
+		{
+			steps_pr_counter++;
+			fehler_acel = fehler_acel + spindel_acel_steps;
+		}
+	}
 }
 
-if (calc_status == FALSE) 
-{ 
-   if( steps_pr >= steps_pr_counter && steps_pr_counter >0)
-  {   fehler_acel = fehler_acel-steps_pr;
-      if (fehler_acel < 0)
-      {
-        steps_pr_counter--;
-        fehler_acel = fehler_acel + spindel_acel_steps;        
-      }      
-  }
- }
+if (calc_status == FALSE)
+{
+	if( steps_pr >= steps_pr_counter && steps_pr_counter >0)
+	{   fehler_acel = fehler_acel-steps_pr;
+		if (fehler_acel < 0)
+		{
+			steps_pr_counter--;
+			fehler_acel = fehler_acel + spindel_acel_steps;
+		}
+	}
+}
 
-
-  fehler = fehler-(steps_pr_counter);
+  fehler = fehler-steps_pr_counter;
   if (fehler < 0)
   { Bnew^Aold ? digitalWrite(dirpin, HIGH):digitalWrite(dirpin, LOW);
     digitalWrite(steppin, LOW);
@@ -263,6 +279,8 @@ if (calc_status == FALSE)
     if(_direction == CCW) stepper0Pos--;
   }   
   Aold=digitalRead(encoder0PinA); 
+   
+  
 }
 
 
@@ -271,34 +289,36 @@ void doEncoderB(){
   Bnew=digitalRead(encoder0PinB);
 
   Bnew^Aold ? encoder0Pos++:encoder0Pos--;
-  Bnew^Aold ? encoderWPos = encoderWPos+100:encoderWPos = encoderWPos-100;
+  Bnew^Aold ? encoderWPos++:encoderWPos--;
   Bnew^Aold ? _direction = CW :_direction = CCW ;
   uiInterruptCountHelp++;
   // winkelpositionen !! 0 und resolution liegen auf einem punkt, 0 = resolution!!
   if (encoderWPos >= resolution  ){encoderWPos = 0; }
   if (encoderWPos < 0){encoderWPos = resolution-1 ;}
-  
-
- if (calc_status == TRUE)
-{  if( steps_pr > steps_pr_counter)
-  {   fehler_acel = fehler_acel-steps_pr;
-      if (fehler_acel < 0)
-      { steps_pr_counter++;
-        fehler_acel = fehler_acel + spindel_acel_steps;        
-      }      
+  if (calc_status == TRUE)
+  {
+	  if( steps_pr > steps_pr_counter)
+	  {   fehler_acel = fehler_acel-steps_pr;
+		  if (fehler_acel < 0)
+		  {
+			  steps_pr_counter++;
+			  fehler_acel = fehler_acel + spindel_acel_steps;
+		  }
+	  }
   }
-}
 
-if (calc_status == FALSE) 
-{ if( steps_pr >= steps_pr_counter && steps_pr_counter > 0)
-  {   fehler_acel = fehler_acel-steps_pr;
-      if (fehler_acel < 0)
-      { steps_pr_counter--;
-        fehler_acel = fehler_acel + spindel_acel_steps;        
-      }      
+  if (calc_status == FALSE)
+  {
+	  if( steps_pr >= steps_pr_counter && steps_pr_counter >0)
+	  {   fehler_acel = fehler_acel-steps_pr;
+		  if (fehler_acel < 0)
+		  {
+			  steps_pr_counter--;
+			  fehler_acel = fehler_acel + spindel_acel_steps;
+		  }
+	  }
   }
-}
-  fehler = fehler-(steps_pr_counter);
+  fehler = fehler-steps_pr_counter;
   if (fehler < 0)
   { Bnew^Aold ? digitalWrite(dirpin, HIGH):digitalWrite(dirpin, LOW);
     digitalWrite(steppin, LOW);
@@ -308,4 +328,5 @@ if (calc_status == FALSE)
     if(_direction == CW) stepper0Pos++;
     if(_direction == CCW) stepper0Pos--;
   }  
+
 }
