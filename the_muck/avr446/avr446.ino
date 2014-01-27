@@ -9,11 +9,11 @@
 #define FALSE 0
 
 // Speed ramp Data extern clac
-#define A_T_x100 3141592.65358979
+#define A_T_x100 3141592
 #define T1_FREQ_148 13520
-#define A_SQ 314159265.358979
-#define A_x20000 314.159265359
-#define accel_stepper 60000
+#define A_SQ 314159265
+#define A_x20000 314
+#define accel_stepper 80000
 
 // Speed ramp states
 #define STOP  0
@@ -24,6 +24,7 @@
 long stepPosition = 0 ;
 boolean x;
 int temp;
+int mode;
 
 typedef struct {
   //! What part of the speed ramp we are in.
@@ -53,7 +54,7 @@ struct GLOBAL_FLAGS {
 	unsigned char dummy:6;
 };
 
-struct GLOBAL_FLAGS state = {FALSE, FALSE, 0};
+struct GLOBAL_FLAGS status = {FALSE, FALSE, 0};
 
 // ARDUINO Defines for I/O
 
@@ -63,23 +64,54 @@ struct GLOBAL_FLAGS state = {FALSE, FALSE, 0};
 
 #define S1  42
 #define S2  43
+#define S3  44
+#define S4  45
+#define S5  46
+#define S6  47
+
+#define led2  53
+#define led1  52
+#define led3  30
+#define led4  31
 
 void setup() {         
 		GLCD.Init();
 
   pinMode(dirpin, OUTPUT);
   pinMode(steppin, OUTPUT);
+  
   pinMode(S1, INPUT);           // set pin to input
   pinMode(S2, INPUT);           // set pin to input
+  pinMode(S3, INPUT);           // set pin to input
+  pinMode(S4, INPUT);           // set pin to input
+  pinMode(S5, INPUT);           // set pin to input
+  pinMode(S6, INPUT);           // set pin to input
   
   digitalWrite(S1, HIGH);       // turn on pullup resistors
   digitalWrite(S2, HIGH);       // turn on pullup resistors
+  digitalWrite(S3, HIGH);       // turn on pullup resistors
+  digitalWrite(S4, HIGH);       // turn on pullup resistors
+  digitalWrite(S5, HIGH);       // turn on pullup resistors
+  digitalWrite(S6, HIGH);       // turn on pullup resistors
+  
+   pinMode(led1, OUTPUT);           // set pin to input
+   pinMode(led2, OUTPUT);           // set pin to input
+   pinMode(led3, OUTPUT);           // set pin to input
+   pinMode(led4, OUTPUT);           // set pin to input
+   
+     digitalWrite(led1, HIGH);   // sets the LED off
+     digitalWrite(led2, HIGH);   // sets the LED off
+     digitalWrite(led3, HIGH);   // sets the LED off
+     digitalWrite(led4, HIGH);   // sets the LED off
+  
   speed_cntr_Init_Timer1();
-  sei();
+  
 	  
 	  GLCD.ClearScreen();
 	  GLCD.SelectFont(SystemFont5x7);
 	  GLCD.print("ZyklenAutomatik");
+	   sei();
+	   mode = 0;
 	  
 }
 
@@ -91,13 +123,18 @@ void loop() {
  GLCD.print("       ");
  GLCD.CursorTo(0,1);
  GLCD.PrintNumber(stepPosition);
+  GLCD.CursorTo(0,4);
+  GLCD.print("       ");
+  GLCD.CursorTo(0,4);
+  GLCD.PrintNumber(temp);
+  
  
  
 	  
   GLCD.CursorTo(0,2);
   switch (srd.run_state){
   case 0:  
-		 GLCD.print("Stop     ");
+		 GLCD.print("Stop    ");		
 	break;
   case 1:
 		GLCD.print("Accel    ");
@@ -107,36 +144,49 @@ void loop() {
 	break;
   case 3:
 		GLCD.print("Run      ");
+		
+		
 	break;}
 	
 	
-	 //if (!digitalRead (S1)) {delay(500);speed_cntr_Move(200,2000);}
-	 //if (!digitalRead (S2)) {delay(500);speed_cntr_Move(-200,2000);}
+	if (!digitalRead(S5)) {mode = 0; digitalWrite(led1, HIGH);}
+	if (!digitalRead(S6)) {mode = 1; digitalWrite(led1, LOW);}
+	
+	
+	if (mode == 0){
+	 if (status.running == FALSE &&!digitalRead (S1)) {speed_cntr_Move(100,2000);}
+	 if (status.running == FALSE &&!digitalRead (S2)) {speed_cntr_Move(-100,2000);}
+	 if (status.running == FALSE &&!digitalRead (S3)) {speed_cntr_Move(1000,10000);}
+	 if (status.running == FALSE &&!digitalRead (S4)) {speed_cntr_Move(-1000,10000);}
+	 }
 	 
-	 if (srd.run_state == STOP && x == 0) {delay(500);speed_cntr_Move(400,12000); x=1;}
-	 if (srd.run_state == STOP && x == 1) {delay(500);speed_cntr_Move(-400,12000); x=0;}
-		 
+	if (mode == 1){ 
+	 if (status.running == FALSE && x == 0) {speed_cntr_Move(1000,10500); x=1;}
+	 if (status.running == FALSE && x == 1) {speed_cntr_Move(-1000,5250); x=0;}
+	 }
  
   }
 
 void sm_driver_StepCounter(signed char inc)
 {
-   sm_driver_StepOutput();
- }
+	 	  sm_driver_StepOutput();
+}
 
 
 void sm_driver_StepOutput()
 {	
-	digitalWrite(steppin, HIGH);   // sets the LED on	
+	
     if (srd.dir == CW){	    
 	    digitalWrite(dirpin, LOW);   // sets the LED on
+		digitalWrite(steppin, LOW);   // sets the LED on	
 		stepPosition++;
     }
     else{
 	    stepPosition--;
-	    digitalWrite(dirpin, HIGH);   // sets the LED on		
+		digitalWrite(dirpin, HIGH);   // sets the LED on	
+		digitalWrite(steppin, LOW);   // sets the LED on		
     }
-	digitalWrite(steppin, LOW);   // sets the LED on
+	digitalWrite(steppin, HIGH);   // sets the LED on
 
 }
 
@@ -165,7 +215,7 @@ void speed_cntr_Move(signed int step, unsigned int speed)
     srd.run_state = DECEL;
     // Just a short delay so main() can act on 'running'.
     srd.step_delay = 1000;
-    state.running = TRUE;
+    status.running = TRUE;
     OCR1A = 10;
     // Run Timer/Counter 1 with prescaler = 8.
     TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
@@ -187,8 +237,7 @@ void speed_cntr_Move(signed int step, unsigned int speed)
     // max_s_lim = speed^2 / (2*alpha*accel)
     max_s_lim = (long)speed*speed/(long)(((long)A_x20000*accel_stepper)/100);
     // If we hit max speed limit before 0,5 step it will round to 0.
-	
-	
+		
     // But in practice we need to move atleast 1 step to get any speed at all.
     if(max_s_lim == 0){
       max_s_lim = 1;
@@ -228,14 +277,14 @@ void speed_cntr_Move(signed int step, unsigned int speed)
 	
     // Reset counter.
     srd.accel_count = 0;
-    state.running = TRUE;
+    status.running = TRUE;
     OCR1A = 10;
     // Set Timer/Counter to divide clock by 8
     TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
 	
   }
   
-  temp = accel_lim;
+  temp = max_s_lim;
 }
 
 
@@ -244,9 +293,10 @@ void speed_cntr_Init_Timer1(void)
   // Tells what part of speed ramp we are in.
   srd.run_state = STOP;
   // Timer/Counter 1 in mode 4 CTC (Not running).
-  TCCR1B = (1<<WGM13);	/***************** Original WGM12 ?!?!? *****************/
+  TCCR1B |= (1<<WGM13);	/***************** Original WGM12 ?!?!? *****************/
+ 
   // Timer/Counter 1 Output Compare A Match Interrupt enable.
-  TIMSK1 = (1<<OCIE1A);
+  TIMSK1 |= (1<<OCIE1A);
 }
 
 
@@ -270,7 +320,7 @@ ISR ( TIMER1_COMPA_vect )
       rest = 0;
       // Stop Timer/Counter 1.
       TCCR1B &= ~((1<<CS12)|(1<<CS11)|(1<<CS10));
-      state.running = FALSE;
+      status.running = FALSE;
       break;
 
     case ACCEL:
@@ -298,7 +348,7 @@ ISR ( TIMER1_COMPA_vect )
       step_count++;
       new_step_delay = srd.min_delay;
       // Chech if we should start decelration.
-      if(step_count >= srd.decel_start) {
+      if(step_count >= srd.decel_start && digitalRead (S1) && digitalRead (S2)&& digitalRead (S3) && digitalRead (S4)) {
         srd.accel_count = srd.decel_val;
         // Start decelration with same delay as accel ended with.
         new_step_delay = last_accel_delay;
