@@ -17,7 +17,7 @@ extern "C" void __cxa_pure_virtual() {;}
 //
 void sm_driver_StepCounter(signed char inc);
 void sm_driver_StepOutput();
-void speed_cntr_Move(signed long step, unsigned long speed);
+void speed_cntr_Move(signed int step, unsigned int speed);
 void speed_cntr_Init_Timer1(void);
 
 #include "C:\Program Files (x86)\Arduino\hardware\arduino\variants\mega\pins_arduino.h" 

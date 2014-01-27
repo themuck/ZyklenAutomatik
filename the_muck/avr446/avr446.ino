@@ -13,7 +13,7 @@
 #define T1_FREQ_148 13520
 #define A_SQ 314159265.358979
 #define A_x20000 314.159265359
-#define accel_stepper 30000
+#define accel_stepper 60000
 
 // Speed ramp states
 #define STOP  0
@@ -23,6 +23,7 @@
 
 long stepPosition = 0 ;
 boolean x;
+int temp;
 
 typedef struct {
   //! What part of the speed ramp we are in.
@@ -90,6 +91,8 @@ void loop() {
  GLCD.print("       ");
  GLCD.CursorTo(0,1);
  GLCD.PrintNumber(stepPosition);
+ 
+ 
 	  
   GLCD.CursorTo(0,2);
   switch (srd.run_state){
@@ -110,8 +113,8 @@ void loop() {
 	 //if (!digitalRead (S1)) {delay(500);speed_cntr_Move(200,2000);}
 	 //if (!digitalRead (S2)) {delay(500);speed_cntr_Move(-200,2000);}
 	 
-	 if (srd.run_state == STOP && x == 0) {delay(500);speed_cntr_Move(400,2000); x=1;}
-	 if (srd.run_state == STOP && x == 1) {delay(500);speed_cntr_Move(-400,2000); x=0;}
+	 if (srd.run_state == STOP && x == 0) {delay(500);speed_cntr_Move(400,12000); x=1;}
+	 if (srd.run_state == STOP && x == 1) {delay(500);speed_cntr_Move(-400,12000); x=0;}
 		 
  
   }
@@ -137,7 +140,7 @@ void sm_driver_StepOutput()
 
 }
 
-void speed_cntr_Move(signed long step, unsigned long speed)
+void speed_cntr_Move(signed int step, unsigned int speed)
 {	
 	
   //! Number of steps before we hit max speed.
@@ -178,7 +181,7 @@ void speed_cntr_Move(signed long step, unsigned long speed)
     // Set accelration by calc the first (c0) step delay .
     // step_delay = 1/tt * sqrt(2*alpha/accel)
     // step_delay = ( tfreq*0.676/100 )*100 * sqrt( (2*alpha*10000000000) / (accel*100) )/10000
-    srd.step_delay = (T1_FREQ_148 * sqrt(A_SQ/ accel_stepper))/100;
+    srd.step_delay = (T1_FREQ_148 * sqrt(A_SQ/accel_stepper))/100;
 
     // Find out after how many steps does the speed hit the max speed limit.
     // max_s_lim = speed^2 / (2*alpha*accel)
@@ -193,7 +196,7 @@ void speed_cntr_Move(signed long step, unsigned long speed)
 
     // Find out after how many steps we must start deceleration.
     // n1 = (n1+n2)decel / (accel + decel)
-    accel_lim = ((signed long)step*accel_stepper) / (accel_stepper+accel_stepper);
+    accel_lim = ((long)step*accel_stepper) / ((long)accel_stepper+accel_stepper);
 	// We must accelrate at least 1 step before we can start deceleration.
     if(accel_lim == 0){
       accel_lim = 1;
@@ -201,7 +204,7 @@ void speed_cntr_Move(signed long step, unsigned long speed)
 
     // Use the limit we hit first to calc decel.
     if(accel_lim <= max_s_lim){
-      srd.decel_val = accel_lim - step;
+      srd.decel_val = accel_lim - step ;
     }
     else{
       srd.decel_val = -((long)max_s_lim*accel_stepper)/accel_stepper;
@@ -229,7 +232,10 @@ void speed_cntr_Move(signed long step, unsigned long speed)
     OCR1A = 10;
     // Set Timer/Counter to divide clock by 8
     TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
+	
   }
+  
+  temp = accel_lim;
 }
 
 
@@ -313,4 +319,5 @@ ISR ( TIMER1_COMPA_vect )
       break;
   }
   srd.step_delay = new_step_delay;
+  
 }
