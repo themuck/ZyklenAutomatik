@@ -24,9 +24,9 @@ Pins - Funktion RJ45 (Endstufe)
 6- 5V
 5- Arduino 8
 4- 5V
-3- Arduino 9
+3- Arduino 9 Dir Pin
 2- GND
-1- Arduino 10
+1- Arduino 10 Step Pin
 
 ----------------
 S1- Arduino 42
