@@ -212,7 +212,7 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 			
 			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE;}
 				
-			if (status.running == FALSE &&!digitalRead (S3)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
+			if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
 			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
 										
 		}
@@ -259,7 +259,7 @@ void print_menue ()
 	switch (menue){
 		case 0:
 		GLCD.CursorTo(6,0);
-		GLCD.print("Gewinde");
+		GLCD.print("Gewinde"); 
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
@@ -421,7 +421,7 @@ void print_menue ()
 		
 		case 4:
 		GLCD.CursorTo(6,0);
-		GLCD.print("Optionen");
+		GLCD.print("Optionen"); // fixed, danke Jürgen
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("Verz.:");
@@ -1123,6 +1123,10 @@ void  write_edit_number(int value)
 	}
 	if (menue == 4)
 	{
+		if (edit == 0)  configuration.delay_move = value;
+		if (edit == 1)  configuration.fast_move = value;
+		if (edit == 2)  configuration.slow_move = value;
+		if (edit == 3)  configuration.backlash_move = value;
 	}
 }
 
