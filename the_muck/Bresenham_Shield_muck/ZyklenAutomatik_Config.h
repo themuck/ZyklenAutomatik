@@ -35,7 +35,7 @@
  
 #define resolution 800  //Resolution Encoder
 
-#define backlash_speed (A_T_x100/1500)
+#define backlash_speed (A_T_x100/1500) 
 #define FSPR 200
 #define steps_mm 100 // aus der Rechnungstabelle
 

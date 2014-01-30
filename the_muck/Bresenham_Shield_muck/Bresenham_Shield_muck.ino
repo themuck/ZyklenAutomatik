@@ -848,13 +848,16 @@ void speed_cntr_Move(signed int step, unsigned int speed)
 			
 			}
 		
+		if (status.thread == FALSE ||status.backlash_trigger == TRUE)
+		{		
 		// Reset counter.
-		srd.accel_count = 0;
-						
+		srd.accel_count = 0;						
 		status.running = TRUE;
 		OCR1A = 10;
 		// Set Timer/Counter to divide clock by 8
 		TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
+		}
+		
 		
 		
 	}
