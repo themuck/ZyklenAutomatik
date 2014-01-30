@@ -258,8 +258,8 @@ void print_menue ()
 	GLCD.FillRect(0,52,127,1,WHITE);
 	switch (menue){
 		case 0:
-		GLCD.CursorTo(1,0);
-		GLCD.print("     Gewinde");
+		GLCD.CursorTo(6,0);
+		GLCD.print("Gewinde");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
@@ -309,8 +309,8 @@ void print_menue ()
 		break;
 		
 		case 1:
-		GLCD.CursorTo(1,0);
-		GLCD.print("     Schleifen");
+		GLCD.CursorTo(6,0);
+		GLCD.print("Schleifen");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
@@ -355,8 +355,8 @@ void print_menue ()
 		break;
 		
 		case 2:
-		GLCD.CursorTo(1,0);
-		GLCD.print("     Drehen");
+		GLCD.CursorTo(6,0);
+		GLCD.print("Drehen");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
@@ -387,8 +387,8 @@ void print_menue ()
 		break;
 		
 		case 3:
-		GLCD.CursorTo(1,0);
-		GLCD.print("     Bewegen");
+		GLCD.CursorTo(6,0);
+		GLCD.print("Bewegen");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
@@ -420,8 +420,8 @@ void print_menue ()
 		break;
 		
 		case 4:
-		GLCD.CursorTo(1,0);
-		GLCD.print("     Obtionen");
+		GLCD.CursorTo(6,0);
+		GLCD.print("Optionen");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("Verz.:");
@@ -1063,33 +1063,33 @@ void  trigger_edit_number(int value)
 	
 	
 	if (menue == 0)
-	{	if (edit == 1)  stepper_posi += value* (steps_mm/2) ;
-		if (edit == 3)  configuration.thread_length += value * (steps_mm/2);
+	{	if (edit == 1)  stepper_posi += value* (steps_mm/4) ;
+		if (edit == 3)  configuration.thread_length += value * (steps_mm/4);
 		if (edit == 4)  configuration.thread_pitch += value;
 	}
 	if (menue == 1)
 	{
-		if (edit == 1)  stepper_posi += value * (steps_mm/2);
-		if (edit == 3)  configuration.grind_way += value* (steps_mm/2);
-		if (edit == 4)  configuration. grind_speed += (value*2*pi)/(FSPR);
+		if (edit == 1)  stepper_posi += value * (steps_mm/4);
+		if (edit == 3)  configuration.grind_way += value* (steps_mm/4);
+		if (edit == 4)  configuration. grind_speed += (value*2*pi*10)/(FSPR);
 	}
 	if (menue == 2)
 	{
-		if (edit == 1)  stepper_posi += value * (steps_mm/2);
-		if (edit == 3)  configuration.cutting_way += value* (steps_mm/2);
-		if (edit == 4)  configuration.cutting_speed +=(value*2*pi)/(FSPR);
+		if (edit == 1)  stepper_posi += value * (steps_mm/4);
+		if (edit == 3)  configuration.cutting_way += value* (steps_mm/4);
+		if (edit == 4)  configuration.cutting_speed +=(value*2*pi*10)/(FSPR);
 	}
 	if (menue == 3)
-	{	if (edit == 1)  stepper_posi += value * (steps_mm/2);
-		if (edit == 2)  configuration.move_way += value * (steps_mm/2);
-		if (edit == 3)  configuration.move_fast_speed += (value*2*pi)/(FSPR);
-		if (edit == 4)  configuration.move_slow_speed += (value*2*pi)/(FSPR);
+	{	if (edit == 1)  stepper_posi += value * (steps_mm/4);
+		if (edit == 2)  configuration.move_way += value * (steps_mm/4);
+		if (edit == 3)  configuration.move_fast_speed += (value*2*pi*10)/(FSPR);
+		if (edit == 4)  configuration.move_slow_speed += (value*2*pi*10)/(FSPR);
 	}
 	if (menue == 4)
 	{
 		if (edit == 0)  configuration.delay_move += value;
-		if (edit == 1)  configuration.fast_move += (value*2*pi)/(FSPR);
-		if (edit == 2)  configuration.slow_move += (value*2*pi)/(FSPR);
+		if (edit == 1)  configuration.fast_move += (value*2*pi*10)/(FSPR);
+		if (edit == 2)  configuration.slow_move += (value*2*pi*10)/(FSPR);
 		if (edit == 3)  configuration.backlash_move += value;
 	}
 }
