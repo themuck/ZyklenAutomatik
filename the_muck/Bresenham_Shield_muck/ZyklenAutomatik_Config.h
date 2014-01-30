@@ -4,12 +4,11 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+#define encoder_PinA 19
+#define encoder_PinB 20
 
-#define encoder1PinA 19
-#define encoder1PinB 20
-
-#define encoder0PinA 2
-#define encoder0PinB 3
+#define spindle_PinA 2
+#define spindle_PinB 3
 
 #define S1  42
 #define S2  43
@@ -27,40 +26,42 @@
 #define led1  52
 #define led3  30
 #define led4  31
-/*
 #define out3  8
-#define out2  9
-#define out1  10
-*/
+
+#define dirpin  9 //pin fÃ¼r Richtung
+#define steppin  10 //pin fÃ¼r Schritt
 
 #define tweeter  32
  
 #define resolution 800  //Resolution Encoder
 
-#define backlash 5 //in Steps
-#define delay1 2
+#define backlash_speed (A_T_x100/1500)
+#define FSPR 200
+#define steps_mm 100 // aus der Rechnungstabelle
 
-#define TRUE 1
-#define FALSE 0
-#define steps_mm 200 // aus der Rechnungstabelle
-#define spindel_steps_help (128000)// aus der Rechnungstabelle
+#define pi  314
 
-#define steps_max_acel 16000 //steps/mm^2
-
-#define dirpin  9 //pin fÃ¼r Richtung
-#define steppin  10 //pin fÃ¼r Schritt
-
-#define CW  0
-#define CCW 1
-#define TRUE 1
-#define FALSE 0
-
-// Speed ramp Data extern clac
+// Speed ramp Data aus der Berechnungstabelle
 #define A_T_x100 3141592
 #define T1_FREQ_148 13520
 #define A_SQ 314159265
 #define A_x20000 314
-#define accel_stepper 40000
+
+#define accel_stepper 60000 
+
+#define default_thread_pitch 225 // Steigung 2mm entspricht 200, 1.06 entspricht 106... !!
+#define default_thread_length 0
+#define default_grind_way 0
+#define default_grind_speed 0
+#define default_cutting_way 0
+#define default_cutting_speed 0
+#define default_move_way 0
+#define default_move_fast_speed 0
+#define default_move_slow_speed 0
+#define default_fast_move 6000
+#define default_slow_move 1000
+#define default_delay_move 2
+#define default_backlash_move 200
 
 // Speed ramp states
 #define STOP  0
@@ -68,6 +69,13 @@
 #define DECEL 2
 #define RUN   3
 #define AUTO  4
+#define BACKLASH 5
+
+#define CW  0
+#define CCW 1
+#define TRUE 1
+#define FALSE 0
+
 
 typedef struct {
 	//! What part of the speed ramp we are in.
@@ -97,13 +105,37 @@ struct GLOBAL_FLAGS {
 	unsigned char cmd:1;
 	//! Dummy bits to fill up a byte.
 	
-	unsigned char zyklen:1;	
+	unsigned char thread:1;	
 	
-	unsigned char trigger:1;
+	unsigned char encoder_trigger:1;
 	
 	unsigned char backlash_trigger:1;
 	
+	unsigned char backlash:1;
+	
 	unsigned char key_pressed:1;
+	
+	unsigned char goback_trigger:1;
+	
+	unsigned char dir:1;
+	
 };
 
 struct GLOBAL_FLAGS status = {FALSE, FALSE, FALSE, FALSE,FALSE,FALSE};
+	
+	struct config_t{
+		long thread_pitch ; // Steigung 2mm entspricht 200, 1.06 entspricht 106... !!
+		long thread_length ;
+		long grind_way;
+		long grind_speed ;
+		long cutting_way ;
+		long cutting_speed;
+		long move_way ;
+		long move_fast_speed ;
+		long move_slow_speed ;
+		long fast_move ;
+		long slow_move ;
+		long delay_move ;
+		long backlash_move;
+	}configuration;
+

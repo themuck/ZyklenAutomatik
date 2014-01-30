@@ -1,141 +1,109 @@
-// include the library header
+// use AVR446 - Linear speed control of stepper motor Documentation, Atmel AVR Application Note
+// ZykloenAutomatik is Open Source under CC BY-NC-SA 3.0 
+// https://github.com/themuck/ZyklenAutomatik
+
+/* TO DO 
+- Aufräumen
+- Kommentare
+- delay(); Funktion entfernen
+- Shönere Struktur, If anweisungen - > switch / case 
+- Programm Verriegelungen 
+- Entprellroutine ?
+- Winkel Positions Anzege
+- Visualisierung LEDs, Töne 
+- Variablen größe
+- Bresenham rirchtung
+- Zahlenwerte Negativ verriegeln 
+-....
+*/
+
 #include <glcd.h>
 #include "ZyklenAutomatik_Config.h"
-// include the Fonts
 #include <fonts/allFonts.h>
-
-
-long p = 225 ; // Steigung 2mm entspricht 200, 1.06 entspricht 106... !! Bresenham verhÃƒÂ¤ltnisse beachten!!
-long v = 0;
-long steps_pr = 0 ; // Festkommaarithmetik Steps fÃƒÂ¼r eine Umdrehung des
+#include "EEPROMAnything.h"
+#include <EEPROM.h>
 
 long fehler = resolution/2; 
 
-long encoder0Pos = 0; //absolut 
-int encoderWPos = 0; //Winkel
-long stepper0Pos; //Position des Schrittmotors in schritten
-long stepper0Pos_temp;
-
- //hat die Richtunt gewechselt? Wurde Umkehrspiel kompensiert?
-boolean _diregtion;
+long spindle_posi = 0; //absolut 
+int spindle_angle = 0; //Winkel
+boolean spindle_dir;
+unsigned int spindle_rpm = 0;
 
 long uiInterruptCountHelp=0; // hilfsZÃƒÂ¤her fÃƒÂ¼r die rpm Messung
 long spindel_puls_s=0; // ZÃƒÂ¤her fÃƒÂ¼r die rpm Messung 
 long ulTimeHelp, ulMillisHelp;// Zeit speicher fÃƒÂ¼r die Messung
 
-unsigned long tmp = 0;
-unsigned int Aold = 1;
-unsigned int Bnew = 0;
+boolean spindle_Aold = 1;
+boolean spindle_Bnew = 0;
 
-long encoder1Pos = 0;
-long tmp1 = 0;
-unsigned int Aold1 = 1;
-unsigned int Bnew1 = 0;
+long encoder_posi = 0;
 
-unsigned int rpm;
-unsigned long rad_sec_stepper;
-long distance_togo = 0;
+boolean encoder_Aold = 1;
+boolean encoder_Bnew = 0;
 
-
-long stepPosition = 0 ;
-long stepPosition_start = 0 ;
+long stepper_rad_sec;
+long stepper_posi = 0;
+long stepper_steps_pr = 0 ; 
+long stepper_posi_tmp = 0 ;
 boolean x;
 int temp;
-char mode;
+char mode ;
+char mode2 ;
 char edit;
 char menue ;
+long steps_toaccel;
 
 int timer1;
 
-const char pi = 314;
-
 static unsigned int step_count = 0;
+	// Holds next delay period.
+unsigned int new_step_delay;
+	// Remember the last step delay used when accelrating.
+static int last_accel_delay;
 
 void setup() {  
-	GLCD.Init();
-    pinMode(S1, INPUT);           // set pin to input
-    digitalWrite(S1, HIGH);       // turn on pullup resistors
-    pinMode(S2, INPUT);           // set pin to input
-    digitalWrite(S2, HIGH);       // turn on pullup resistors
-    pinMode(S3, INPUT);           // set pin to input
-    digitalWrite(S3, HIGH);       // turn on pullup resistors
-    pinMode(S4, INPUT);           // set pin to input
-    digitalWrite(S4, HIGH);       // turn on pullup resistors
-    pinMode(S5, INPUT);           // set pin to input
-    digitalWrite(S5, HIGH);       // turn on pullup resistors
-    pinMode(S6, INPUT);           // set pin to input
-    digitalWrite(S6, HIGH);       // turn on pullup resistors
-    pinMode(up, INPUT);           // set pin to input
-    digitalWrite(up, HIGH);       // turn on pullup resistors
-    pinMode(down, INPUT);           // set pin to input
-    digitalWrite(down, HIGH);       // turn on pullup resistors
-    pinMode(right, INPUT);           // set pin to input
-    digitalWrite(right, HIGH);       // turn on pullup resistors
-    pinMode(left, INPUT);           // set pin to input
-    digitalWrite(left, HIGH);       // turn on pullup resistors
-    pinMode(encoder, INPUT);           // set pin to input
-    digitalWrite(encoder, HIGH);       // turn on pullup resistors
-    
-    pinMode(led1, OUTPUT);           // set pin to input
-    pinMode(led2, OUTPUT);           // set pin to input
-    pinMode(led3, OUTPUT);           // set pin to input
-    pinMode(led4, OUTPUT);           // set pin to input
-    pinMode(tweeter, OUTPUT);           // set pin to input
-	/*
-    pinMode(out1, OUTPUT);           // set pin to input
-    pinMode(out2, OUTPUT);           // set pin to input
-    pinMode(out3, OUTPUT);           // set pin to input
-	*/
+	io_init(); 
+		
+	attachInterrupt(3, doEncoderB, RISING );	 
+	attachInterrupt(0, doSpindleA, CHANGE);
+	attachInterrupt(1, doSpindleB, CHANGE);
 	
-	pinMode(dirpin, OUTPUT);
-	pinMode(steppin, OUTPUT);
-	pinMode(encoder0PinA, INPUT);
-	pinMode(encoder0PinB, INPUT);
-	pinMode(encoder1PinA, INPUT);
-	pinMode(encoder1PinB, INPUT);
-	pinMode(encoder, INPUT);           // set pin to input
-  
-	
-  attachInterrupt(0, doEncoderA, CHANGE); // encoder pin on interrupt 0 (pin 2)
-  attachInterrupt(1, doEncoderB, CHANGE); // encoder pin on interrupt 1 (pin 3)
-  attachInterrupt(3, doPotiB, RISING ); 
-
-
-  
-    digitalWrite(led1, HIGH);   // sets the LED on
-    digitalWrite(led2, HIGH);   // sets the LED on
-    digitalWrite(led3, HIGH);   // sets the LED on
-    digitalWrite(led4, HIGH);   // sets the LED on
-	digitalWrite(encoder, HIGH);       // turn on pullup resistors
-	/*
-    digitalWrite(out1, HIGH);   // sets the LED on
-    digitalWrite(out2, HIGH);   // sets the LED on
-    digitalWrite(out3, HIGH);   // sets the LED on
-	*/
+	GLCD.Init();  	
 	GLCD.SelectFont(SystemFont5x7);
-	print_menue(menue);
-	print_edit(edit);
+	GLCD.CursorTo(0,2);
+	GLCD.print("  ZyklenAutomatik  ");
+	GLCD.EraseTextLine();
+	delay(1000);
+	speed_cntr_Init_Timer1();
 	
 	
-	  GLCD.CursorTo(0,7);
-	  GLCD.print("  <     >   <<    >> ");
-	  GLCD.DrawHLine(0,50,127);
-	  GLCD.DrawHLine(0,54,127);
-	  GLCD.DrawVLine(3,0,49);
-	  
-	
-	 speed_cntr_Init_Timer1();
-	sei();
+	if (!digitalRead(encoder)) // Lade Defalut werte und nicht den Speicher
+	{	digitalWrite(led2,LOW);
+		GLCD.CursorTo(0,3);
+		GLCD.print("load default values");
+		GLCD.EraseTextLine();
+		while(!digitalRead(encoder));
+		delay(1000);
+		digitalWrite(led2,HIGH);
+		write_default_config();
+		
+	}else EEPROM_readAnything(0, configuration);
   
- 
+	 print_menue();
+	 print_edit_cursor();
+	 //-------------------------- Draw Lines --------------------------------
+	 GLCD.DrawHLine(0,50,127);
+	 GLCD.DrawHLine(0,54,127);
+	 GLCD.DrawVLine(3,0,49);
 }
 void loop(){
   //Check each changes in position
   
-print_menue_numbers(menue);
+print_menue_numbers();
 
-if ((!digitalRead(right) || !digitalRead(left)) && status.key_pressed == FALSE && status.running == FALSE)
-{
+if ((!digitalRead(right) || !digitalRead(left)) && status.key_pressed == FALSE && status.running == FALSE&& mode == 0)
+{	mode2 = 0; // Automatiken zurück setzen 
 	if (!digitalRead(right))
 	{
 		menue++;
@@ -151,12 +119,11 @@ if ((!digitalRead(right) || !digitalRead(left)) && status.key_pressed == FALSE &
 	if (menue < 0)
 	{menue = 4;
 	}
-	print_menue(menue);	
-	
+	print_menue();		
 	status.key_pressed = TRUE;
 }
 
-if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && status.running == FALSE)
+if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && status.running == FALSE )
 {
 	if (!digitalRead(down))
 	{
@@ -172,68 +139,120 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 	
 	if ( edit < 0)
 	{edit = 4;
-	}
-	
-	
-	print_edit(edit);
+	}	
+	print_edit_cursor();
 	status.key_pressed = TRUE;
 }
 
 
-  
-
-  
-  
-  if (!digitalRead(S5)) {mode = 0; digitalWrite(led1, HIGH);}
-  if (!digitalRead(S6)) {mode = 1; digitalWrite(led1, LOW);}
+  // daten speichern ---------------------------------
+  if (!digitalRead(encoder) && menue == 4 && edit == 4 && status.key_pressed == FALSE) {
+	  digitalWrite(led2, LOW);
+	  EEPROM_writeAnything(0, configuration);
+	  status.key_pressed = TRUE;delay(1000);
+	  digitalWrite(led2, HIGH);}	
+	  
+  // nummern auf 0 setzen------------------------------  
+  if (!digitalRead(encoder) && status.key_pressed == FALSE) {write_edit_number(0);status.key_pressed = TRUE;}
+  // Mode Wechsel-------------------------------------- 
+  if (!digitalRead(S5)&& status.key_pressed == FALSE&& status.running == FALSE ) {mode = 0; print_menue();digitalWrite(led1, HIGH);status.key_pressed = TRUE;}
+  if (!digitalRead(S6)&& menue != 4&& status.key_pressed == FALSE&& status.running == FALSE ) {mode = 1; print_menue();digitalWrite(led1, LOW);status.key_pressed = TRUE;}
+	  
 	  
   if (status.running == TRUE) {digitalWrite(led4, LOW);}
 	  else digitalWrite(led4, HIGH);
   
-  
-  if (mode == 0){
-	  if (status.running == FALSE &&!digitalRead (S1)) {speed_cntr_Move(100,2000);}
-	  if (status.running == FALSE &&!digitalRead (S2)) {speed_cntr_Move(-100,2000);}
-	  if (status.running == FALSE &&!digitalRead (S3)) {speed_cntr_Move(1000,6000);}
-	  if (status.running == FALSE &&!digitalRead (S4)) {speed_cntr_Move(-1000,6000);}
-  }
+    // *****************************************************Programm Funktionen--------------------------------------------------------------------------  
+	
+  if (mode == 0 && menue != 4){
+	  if (status.running == FALSE &&!digitalRead (S1)) {speed_cntr_Move(100,configuration.slow_move);}
+	  if (status.running == FALSE &&!digitalRead (S2)) {speed_cntr_Move(-100,configuration.slow_move);}
+	  if (status.running == FALSE &&!digitalRead (S3)) {speed_cntr_Move(1000,configuration.fast_move);}
+	  if (status.running == FALSE &&!digitalRead (S4)) {speed_cntr_Move(-1000,configuration.fast_move);}
+		}
     
   
-	  if (mode == 1 && status.running == FALSE && !digitalRead(up) ) {status.zyklen = TRUE; stepPosition_start = stepPosition;mode = 2;status.trigger = FALSE;}
-	  if (mode == 2 && status.running == FALSE && status.trigger == TRUE) {speed_cntr_Move(distance_togo,rad_sec_stepper);mode = 3;timer1 = 0;}
-	  if (status.running == FALSE && mode == 3 && (stepPosition_start |= stepPosition)&& timer1 >= delay1 ) {speed_cntr_Move(-distance_togo,5000);mode = 1; status.zyklen = FALSE; }
-  
-  
-  
+	if (mode == 1 && menue == 0){
+			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE; status.goback_trigger = FALSE;}
 
-
-   
-  ulMillisHelp = millis();
-    if(ulTimeHelp <= ulMillisHelp )
-    {   
-		if (status.zyklen == TRUE)
-		{timer1++;
+			if (status.running == FALSE && !digitalRead (S4)&& status.key_pressed == FALSE && (stepper_posi_tmp-stepper_posi)!= stepper_posi) {speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.fast_move);status.goback_trigger = FALSE;status.key_pressed = TRUE;}	
+				
+			if (status.running == FALSE && !digitalRead (S1)&& status.key_pressed == FALSE && status.thread == FALSE) {status.thread = TRUE; status.goback_trigger = TRUE;status.key_pressed = TRUE;stepper_posi_tmp = stepper_posi; speed_cntr_Move(configuration.thread_length,stepper_rad_sec);}	
+		    //  Auto---------------		
+		    if (status.running == FALSE && stepper_posi == (stepper_posi_tmp+configuration.thread_length) && status.goback_trigger == TRUE && mode2 == 1){delay(100*configuration.delay_move);speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.fast_move); status.thread = FALSE; status.goback_trigger = FALSE;}
+			
+			// Toogle Auto---------------
+			if (!digitalRead (left)&& status.key_pressed == FALSE&& status.running == FALSE ) {mode2 = 0; print_menue();status.key_pressed = TRUE;status.thread = FALSE; status.goback_trigger = FALSE;}
+			if (!digitalRead (right)&& status.key_pressed == FALSE&& status.running == FALSE ) {mode2 = 1; print_menue();status.key_pressed = TRUE;status.thread = FALSE; status.goback_trigger = FALSE;}
+										
 		}
 		
+		
+		if (mode == 1 && menue == 1){
+			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE; status.goback_trigger = FALSE;}
+
+			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE && (stepper_posi_tmp-stepper_posi)!= stepper_posi) {speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.fast_move);status.goback_trigger = FALSE;status.key_pressed = TRUE;}
+			
+			if (status.running == FALSE && !digitalRead (S1)&& status.key_pressed == FALSE && status.goback_trigger == FALSE) {status.goback_trigger = TRUE;status.key_pressed = TRUE;stepper_posi_tmp = stepper_posi; speed_cntr_Move(configuration.grind_way,configuration.grind_speed);status.dir = FALSE;}
+			//  Auto---------------
+			if(mode2 == 1 && status.goback_trigger == TRUE && status.running == FALSE ){ 
+			if (status.dir == FALSE && status.running == FALSE ) {delay(100*configuration.delay_move);speed_cntr_Move(-configuration.grind_way,configuration.grind_speed);status.dir = TRUE;}
+			if (status.dir == TRUE && status.running == FALSE ) {delay(100*configuration.delay_move);speed_cntr_Move(configuration.grind_way,configuration.grind_speed);status.dir = FALSE;}
+			}
+			
+			// Toogle Auto---------------
+			if (!digitalRead (left)&& status.key_pressed == FALSE&& status.running == FALSE ) {mode2 = 0; print_menue();status.key_pressed = TRUE; status.goback_trigger = FALSE;}
+			if (!digitalRead (right)&& status.key_pressed == FALSE&& status.running == FALSE ) {mode2 = 1; print_menue();status.key_pressed = TRUE; status.goback_trigger = FALSE;}
+						
+			}
+			
+			
+			
+		if (mode == 1 && menue == 2){
+			
+			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE;}
+				
+			if (status.running == FALSE &&!digitalRead (S3)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
+			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
+										
+		}
+
+		
+		if (mode == 1 && menue == 3){
+			
+				  if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.move_way,configuration.move_slow_speed);status.key_pressed = TRUE;}
+				  if (status.running == FALSE &&!digitalRead (S2)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.move_way,configuration.move_slow_speed);status.key_pressed = TRUE;}
+				  if (status.running == FALSE &&!digitalRead (S3)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.move_way,configuration.move_fast_speed);status.key_pressed = TRUE;}
+				  if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.move_way,configuration.move_fast_speed);status.key_pressed = TRUE;}
+		}
+		
+		
+		
+
+   
+    ulMillisHelp = millis();
+    if(ulTimeHelp <= ulMillisHelp )
+    {   		
 		spindel_puls_s  = uiInterruptCountHelp;
 		uiInterruptCountHelp=0;
 		ulTimeHelp = (ulMillisHelp + 1000);
+		   
+		   spindle_rpm =  (spindel_puls_s*60)/(resolution) ;
+		   stepper_steps_pr = ((long)configuration.thread_pitch * steps_mm)/100;
+		   stepper_rad_sec = ((long)2*spindle_rpm*pi*stepper_steps_pr)/((long)FSPR*60);
+		   steps_toaccel = (long)stepper_rad_sec*stepper_rad_sec/(long)(((long)A_x20000*accel_stepper)/100);
+		   
 					       
-    }
-	
-	  if (status.running == FALSE)
-	  {	 steps_pr = (p * steps_mm)/100;
-		 rpm =  (spindel_puls_s*60)/((resolution)) ;
-		 rad_sec_stepper = (2*spindel_puls_s*pi)/(steps_pr);
-	  }
+    }	
+	  
 	  
     
-    if(!(!digitalRead(encoder)||!digitalRead(S1)||!digitalRead(S2)||!digitalRead(S3)||!digitalRead(S4)||!digitalRead(S5)||!digitalRead(S6)||!digitalRead(left)||!digitalRead(right)||!digitalRead(up)||!digitalRead(down))) {status.key_pressed = FALSE;}
+    if(!(!digitalRead(encoder)||!digitalRead(S1)||!digitalRead(S2)||!digitalRead(S3)||!digitalRead(S4)||!digitalRead(S5)||!digitalRead(S6)||!digitalRead(left)||!digitalRead(right)||!digitalRead(up)||!digitalRead(down)||!digitalRead(encoder))) {status.key_pressed = FALSE;}
 ;
  
 }
 
-void print_menue (int menue)
+void print_menue ()
 {
 	
 	GLCD.FillRect(0,52,127,1,WHITE);
@@ -245,17 +264,48 @@ void print_menue (int menue)
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
 		GLCD.EraseTextLine();
+		
+		GLCD.CursorTo(1,3);
+		GLCD.print("Besch. Weg:");
+		GLCD.EraseTextLine();		
+		
 		GLCD.CursorTo(1,2);
 		GLCD.print("Position:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,4);
-		GLCD.print("Gew. Länge:");
+		GLCD.print("Gew. Laenge:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,5);
 		GLCD.print("Steigung P:");
 		
 		GLCD.EraseTextLine();
 		GLCD.FillRect(1,52,24,0);
+		
+		if(mode==0){
+		GLCD.CursorTo(0,7);
+		GLCD.print("  <     >   <<    >> ");
+		GLCD.EraseTextLine();
+		}else
+		{
+			GLCD.CursorTo(0,7);
+			GLCD.print("  GO  |  Stop  | Ret.");
+			GLCD.EraseTextLine();
+			
+			if(mode2==0){
+				GLCD.CursorTo(1,0);
+				GLCD.print("<    Ret. manual   >");
+				GLCD.EraseTextLine();
+			}else
+			{
+				GLCD.CursorTo(1,0);
+				GLCD.print("<    Ret. auto     >");
+				GLCD.EraseTextLine();
+			}
+			
+		}
+		
+		
+		
 		break;
 		
 		case 1:
@@ -268,6 +318,8 @@ void print_menue (int menue)
 		GLCD.CursorTo(1,2);
 		GLCD.print("Position:");
 		GLCD.EraseTextLine();
+		GLCD.CursorTo(1,3);
+		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,4);
 		GLCD.print("Weg:");
 		GLCD.EraseTextLine();
@@ -276,6 +328,30 @@ void print_menue (int menue)
 		GLCD.EraseTextLine();
 		
 		GLCD.FillRect(26,52,24,0);
+		if(mode==0){
+			GLCD.CursorTo(0,7);
+			GLCD.print("  <     >   <<    >> ");
+			GLCD.EraseTextLine();
+			GLCD.CursorTo(1,3);
+			GLCD.EraseTextLine();
+		}else
+		{
+			GLCD.CursorTo(0,7);
+			GLCD.print("  GO  |  Stop  | Ret.");
+			GLCD.EraseTextLine();
+			
+			if(mode2==0){
+				GLCD.CursorTo(1,0);
+				GLCD.print("<    Ret. manual   >");
+				GLCD.EraseTextLine();
+			}else
+			{
+				GLCD.CursorTo(1,0);
+				GLCD.print("<       Auto       >");
+				GLCD.EraseTextLine();
+			}
+			
+		}
 		break;
 		
 		case 2:
@@ -288,14 +364,26 @@ void print_menue (int menue)
 		GLCD.CursorTo(1,2);
 		GLCD.print("Position:");
 		GLCD.EraseTextLine();
+		GLCD.CursorTo(1,3);
+		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,4);
 		GLCD.print("Weg:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,5);
-		GLCD.print("Schn. Geschw:");
+		GLCD.print("Geschw:");
 		
 		GLCD.EraseTextLine();
 		GLCD.FillRect(51,52,24,0);
+		if(mode==0){
+			GLCD.CursorTo(0,7);
+			GLCD.print("  <     >   <<    >> ");
+			GLCD.EraseTextLine();
+		}else
+		{
+			GLCD.CursorTo(0,7);
+			GLCD.print("< GO  |  Stop  | GO >");
+			GLCD.EraseTextLine();
+		}
 		break;
 		
 		case 3:
@@ -305,17 +393,30 @@ void print_menue (int menue)
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
 		GLCD.EraseTextLine();
+		GLCD.CursorTo(1,3);
+		GLCD.print("Weg:");
+		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,2);
 		GLCD.print("Position:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,4);
-		GLCD.print("Eil. Geschw:");
+		GLCD.print("Eil G.:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,5);
-		GLCD.print("Arb. Geschw:");
+		GLCD.print("Arb G.:");
 		
 		GLCD.EraseTextLine();
 		GLCD.FillRect(76,52,24,0);
+			if(mode==0){
+				GLCD.CursorTo(0,7);
+				GLCD.print("  <     >   <<    >> ");
+				GLCD.EraseTextLine();
+			}else
+			{
+				GLCD.CursorTo(0,7);
+				GLCD.print("  <     >   <<    >> ");
+				GLCD.EraseTextLine();
+			}
 		break;
 		
 		case 4:
@@ -323,26 +424,32 @@ void print_menue (int menue)
 		GLCD.print("     Obtionen");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
-		GLCD.print("RPM:");
+		GLCD.print("Verz.:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,2);
-		GLCD.print("Position:");
+		GLCD.print("Eil G.:");
+		GLCD.EraseTextLine();
+		GLCD.CursorTo(1,3);
+		GLCD.print("Arb G.:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,4);
-		GLCD.print("Eil. Geschw:");
+		GLCD.print("Spiel:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,5);
-		GLCD.print("Arb. Geschw:");
+		GLCD.print("Speichern?");
 		
 		GLCD.EraseTextLine();
 		GLCD.FillRect(101,52,24,0);
+		GLCD.CursorTo(0,7);
+		GLCD.EraseTextLine();
 		break;
 
 
 	}
 	
 } 
-void print_edit (int edit)
+
+void print_edit_cursor ()
 {
 	
 	GLCD.FillRect(0,0,2,49,WHITE);
@@ -377,116 +484,228 @@ void print_edit (int edit)
 	
 }
 
-void print_menue_numbers (int menue)
+void print_menue_numbers ()
 {
 	  switch (menue){
-		  case 0:
+		  case 0: // Gewinde ---------------------------
 		  if (status.running == FALSE){
+			 GLCD.CursorTo(14,1);
+			GLCD.PrintNumber(spindle_rpm);
+			GLCD.EraseTextLine();
 			  
-			  GLCD.CursorTo(14,1);
-			  GLCD.PrintNumber(rpm);
-			  GLCD.EraseTextLine();
+			GLCD.CursorTo(14,3);
+			GLCD.print((float)steps_toaccel/steps_mm);
+			GLCD.EraseTextLine();
+				  
+			  
+						  
 			  GLCD.CursorTo(14,4);
-			  GLCD.print((float)distance_togo/steps_mm,2);
+			  GLCD.print((float)configuration.thread_length/steps_mm);
 			  GLCD.EraseTextLine();
 			  GLCD.CursorTo(14,5);
-			  GLCD.print(((float)p/100));
-		  GLCD.EraseTextLine();}
-		  GLCD.CursorTo(14,2);
-		  GLCD.print((float)stepPosition/steps_mm);
-		  GLCD.EraseTextLine();
+			  GLCD.print(((float)configuration.thread_pitch/100));
+			  GLCD.EraseTextLine();
+			  }
+			  GLCD.CursorTo(14,2);
+			  GLCD.print((float)stepper_posi/steps_mm);
+			  GLCD.EraseTextLine();
+		  
 		  break;
+		  
+		    case 1:// Schleifen ---------------------------
+		    if (status.running == FALSE){
+			    
+			 GLCD.CursorTo(14,1);
+			 GLCD.PrintNumber(spindle_rpm);
+			 GLCD.EraseTextLine();
+			
+			 GLCD.CursorTo(14,4);
+			 GLCD.print((float)configuration.grind_way/steps_mm);
+			 GLCD.EraseTextLine();
+			 GLCD.CursorTo(14,5);
+			 GLCD.print((float)((long)configuration.grind_speed*FSPR)/((long)2*pi*steps_mm) );
+		     GLCD.EraseTextLine();
+			 }
+			  GLCD.CursorTo(14,2);
+			  GLCD.print((float)stepper_posi/steps_mm);
+			  GLCD.EraseTextLine();
+		     
+		    break;
+			
+			    case 2:
+			    if (status.running == FALSE){
+				    
+				    GLCD.CursorTo(14,1);
+				    GLCD.PrintNumber(spindle_rpm);
+				    GLCD.EraseTextLine();
+				    
+				    GLCD.CursorTo(14,4);
+				    GLCD.print((float)configuration.cutting_way/steps_mm);
+				    GLCD.EraseTextLine();
+				    GLCD.CursorTo(14,5);
+				    GLCD.print((float)((long)configuration.cutting_speed*FSPR)/((long)2*pi*steps_mm) );
+				    GLCD.EraseTextLine();
+			    }
+				GLCD.CursorTo(14,2);
+				GLCD.print((float)stepper_posi/steps_mm);
+				GLCD.EraseTextLine();
+			    
+			    break;
+				
+				    case 3:
+				    if (status.running == FALSE){
+					    
+					    GLCD.CursorTo(14,1);
+					    GLCD.PrintNumber(spindle_rpm);
+					    GLCD.EraseTextLine();
+					   
+						GLCD.CursorTo(14,3);
+						GLCD.print((float)configuration.move_way/steps_mm);
+						GLCD.EraseTextLine();
+					    GLCD.CursorTo(14,4);
+					    GLCD.print((float)((long)configuration.move_fast_speed*FSPR)/((long)2*pi*steps_mm) );
+					    GLCD.EraseTextLine();
+					    GLCD.CursorTo(14,5);
+					    GLCD.print((float)((long)configuration.move_slow_speed*FSPR)/((long)2*pi*steps_mm) );
+					    GLCD.EraseTextLine();
+				    }
+					 GLCD.CursorTo(14,2);
+					 GLCD.print((float)stepper_posi/steps_mm);
+					 GLCD.EraseTextLine();
+				    
+				    break;
+					
+					  case 4:
+					  if (status.running == FALSE){
+						  
+						  GLCD.CursorTo(14,1);
+						  GLCD.print(configuration.delay_move);
+						  GLCD.EraseTextLine();  
+						  GLCD.CursorTo(14,4);
+						  GLCD.print(configuration.backlash_move);
+						  GLCD.EraseTextLine();
+						  GLCD.CursorTo(14,2);
+						  GLCD.print((float)((long)configuration.fast_move*FSPR)/((long)2*pi*steps_mm) );
+						  GLCD.EraseTextLine();
+						  GLCD.CursorTo(14,3);
+						  GLCD.print((float)((long)configuration.slow_move*FSPR)/((long)2*pi*steps_mm) );
+						  GLCD.EraseTextLine();
+					  }
+					  
+					  
+					  break;
 
 	  }
-	  
-	  switch (edit)
-	  {
-		  case 0:
-		  distance_togo = encoder1Pos*resolution/8;
-		  break;
-		  case 1:
-		  p = encoder1Pos;
-		  break;
-	  }
-	
+	 	
 }
 
-
-void doPotiB(){
+void doEncoderB(){
 	
- if (digitalRead(encoder1PinA) == digitalRead(encoder1PinB)) {
-	 encoder1Pos--;
-	 } else {
-	 encoder1Pos++;
+ if (digitalRead(encoder_PinA) == digitalRead(encoder_PinB)) {
+	 encoder_posi--;
+	 trigger_edit_number(-1);
+	 } 
+	 
+	 else {
+	 encoder_posi++;
+	 trigger_edit_number(+1);
  }
 }
-
-
 // Interrupt on A changing state
-void doEncoderA(){
-  Bnew^Aold ? encoder0Pos++:encoder0Pos--;
-  Bnew^Aold ? encoderWPos++:encoderWPos--;
-  Bnew^Aold ? _diregtion = CW :_diregtion = CCW ;
+void doSpindleA(){
+  spindle_Bnew^spindle_Aold ? spindle_posi++:spindle_posi--;
+  spindle_Bnew^spindle_Aold ? spindle_angle++:spindle_angle--;
+  spindle_Bnew^spindle_Aold ? spindle_dir = CW :spindle_dir = CCW ;
   uiInterruptCountHelp++;
   
   // winkelpositionen !! 0 und resolution liegen auf einem punkt, 0 = resolution!!
-  if (encoderWPos >= resolution  ){encoderWPos = 0; }
-  if (encoderWPos < 0){encoderWPos = resolution-1 ;}
+  if (spindle_angle >= resolution  ){spindle_angle = 0; }
+  if (spindle_angle < 0){spindle_angle = resolution-1 ;}
 
- if (encoderWPos == 0 && status.zyklen == TRUE && status.running == FALSE)
- {status.trigger = TRUE;
+ // Einkoppeln der Spindel
+ if (spindle_angle == 0 && status.thread == TRUE && status.backlash == FALSE)
+ {	 srd.run_state = ACCEL;
+	 srd.accel_count = 0;
+	 
+	 status.running = TRUE;
+	 OCR1A = 10;
+	 // Set Timer/Counter to divide clock by 8
+	 TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
  }	
 	
  if (srd.run_state == AUTO)
  {
-	 fehler = fehler-steps_pr;
+ 
+	 fehler = fehler-stepper_steps_pr;
 	 if (fehler < 0 )
-	 { sm_driver_StepOutput();
+	 { sm_driver_StepCounter();
 		 step_count++;
 		 fehler = fehler + resolution;
 	 }
+	 new_step_delay = srd.min_delay;
+		if(step_count >= srd.decel_start) // Abbruch bedingung
+		{	decl_trigger();
+		}
  }
-  Aold=digitalRead(encoder0PinA); 
+  spindle_Aold=digitalRead(spindle_PinA); 
    
   
 }
-
-
 // Interrupt on B changing state
-void doEncoderB(){
-  Bnew=digitalRead(encoder0PinB);
+void doSpindleB(){
+  spindle_Bnew=digitalRead(spindle_PinB);
 
-  Bnew^Aold ? encoder0Pos++:encoder0Pos--;
-  Bnew^Aold ? encoderWPos++:encoderWPos--;
-  Bnew^Aold ? _diregtion = CW :_diregtion = CCW ;
+  spindle_Bnew^spindle_Aold ? spindle_posi++:spindle_posi--;
+  spindle_Bnew^spindle_Aold ? spindle_angle++:spindle_angle--;
+  spindle_Bnew^spindle_Aold ? spindle_dir = CW :spindle_dir = CCW ;
   uiInterruptCountHelp++;
   // winkelpositionen !! 0 und resolution liegen auf einem punkt, 0 = resolution!!
-  if (encoderWPos >= resolution  ){encoderWPos = 0; }
-  if (encoderWPos < 0){encoderWPos = resolution-1 ;}
-	 
-	 if (encoderWPos  == 0 && status.zyklen == TRUE && status.running == FALSE)
-	 {status.trigger = TRUE;
+  if (spindle_angle >= resolution  ){spindle_angle = 0; }
+  if (spindle_angle < 0){spindle_angle = resolution-1 ;}
+	  
+// Einkoppeln der Spindel 
+	 if (spindle_angle  == 0 && status.thread == TRUE && status.backlash == FALSE)
+	 {	 srd.run_state = ACCEL;
+		 srd.accel_count = 0;
+		 
+		 status.running = TRUE;
+		 OCR1A = 10;
+		 // Set Timer/Counter to divide clock by 8
+		 TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
 	 }
 	
-if (srd.run_state == AUTO)
-{
-  fehler = fehler-steps_pr;
-  if (fehler < 0 )
-  { sm_driver_StepOutput();
-	  step_count++;
-    fehler = fehler + resolution;
-   }  
-  }
+
+ if (srd.run_state == AUTO)
+ {
+	 
+	 fehler = fehler-stepper_steps_pr;
+	 if (fehler < 0 )
+	 { sm_driver_StepCounter();
+		 step_count++;
+		 fehler = fehler + resolution;
+	 }
+	 
+	 new_step_delay = srd.min_delay;
+	 if(step_count >= srd.decel_start) // Abbruch bedingung 
+	 {	  new_step_delay = srd.min_delay;
+		 
+		if(step_count >= srd.decel_start)
+		{	
+			decl_trigger();
+		}
+	 }
+ }
+  
 
 }
-
-
-
-void sm_driver_StepCounter(signed char inc)
+// über bleibsel....
+void sm_driver_StepCounter()
 {
+	if (srd.run_state != AUTO)
+	{
 	sm_driver_StepOutput();
+	}else bresenham_StepOutput();
 }
-
 
 void sm_driver_StepOutput()
 {
@@ -494,10 +713,27 @@ void sm_driver_StepOutput()
 	if (srd.dir == CW){
 		digitalWrite(dirpin, LOW);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
-		stepPosition++;
+		if(srd.run_state != BACKLASH) stepper_posi++;
 	}
 	else{
-		stepPosition--;
+		if(srd.run_state != BACKLASH) stepper_posi--;
+		digitalWrite(dirpin, HIGH);   // sets the LED on
+		digitalWrite(steppin, LOW);   // sets the LED on
+	}
+	digitalWrite(steppin, HIGH);   // sets the LED on
+
+}
+
+void bresenham_StepOutput()
+{
+	
+	if (srd.dir == CW){
+		digitalWrite(dirpin, LOW);   // sets the LED on
+		digitalWrite(steppin, LOW);   // sets the LED on
+		stepper_posi++;
+	}
+	else{
+		stepper_posi--;
 		digitalWrite(dirpin, HIGH);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
 	}
@@ -525,7 +761,8 @@ void speed_cntr_Move(signed int step, unsigned int speed)
 	}
 	
 	if (srd.dir != srd.dir_old)
-	{status.backlash_trigger = TRUE;		 	
+	{status.backlash_trigger = TRUE;
+	 status.backlash = TRUE;		 	
 	} else status.backlash_trigger = FALSE;
 	
 	srd.dir_old = srd.dir;
@@ -591,14 +828,24 @@ void speed_cntr_Move(signed int step, unsigned int speed)
 		srd.decel_start = step + srd.decel_val;
 
 		// If the maximum speed is so low that we dont need to go via accelration state.
-		
-		
-		if(srd.step_delay <= srd.min_delay){
-			srd.step_delay = srd.min_delay;
-			srd.run_state = RUN;
+				
+		if( srd.step_delay <= srd.min_delay){
+			/*srd.step_delay = srd.min_delay;
+			srd.run_state = RUN;*/
+			
+			if (status.backlash_trigger == TRUE)
+			{ srd.run_state = BACKLASH;
+			}
+			
+			else srd.run_state = ACCEL;
 		}
 		else{
-			srd.run_state = ACCEL;
+			if (status.backlash_trigger == TRUE)
+			{ srd.run_state = BACKLASH;
+			} 
+			
+			else srd.run_state = ACCEL;
+			
 			}
 		
 		// Reset counter.
@@ -612,9 +859,8 @@ void speed_cntr_Move(signed int step, unsigned int speed)
 		
 	}
 	
-	temp = max_s_lim;
-}
 
+}
 
 void speed_cntr_Init_Timer1(void)
 {
@@ -628,33 +874,32 @@ void speed_cntr_Init_Timer1(void)
 	TIMSK1 |= (1<<OCIE1A);
 }
 
-
-
 ISR ( TIMER1_COMPA_vect )
 {
-	// Holds next delay period.
-	unsigned int new_step_delay;
-	// Remember the last step delay used when accelrating.
-	static int last_accel_delay;
-	// Counting steps when moving.
+
 	
+	static unsigned int backlash_count = 0;	
+	static unsigned int backlash_count_stepdelay = 0;
+	// Counting steps when moving.
 	// Keep track of remainder from new_step-delay calculation to incrase accurancy
 	static unsigned int rest = 0;
 	
 	OCR1A = srd.step_delay;
 
 	switch(srd.run_state) {
-		case STOP:
+		case STOP:		
 		step_count = 0;
 		rest = 0;
 		// Stop Timer/Counter 1.
 		TCCR1B &= ~((1<<CS12)|(1<<CS11)|(1<<CS10));
-		status.running = FALSE;
+		if(status.thread == FALSE)status.running = FALSE;
 		
+		break;
+				
 		break;
 
 		case ACCEL:
-		sm_driver_StepCounter(srd.dir);
+		sm_driver_StepCounter();
 		step_count++;
 		srd.accel_count++;
 		new_step_delay = srd.step_delay - (((2 * (long)srd.step_delay) + rest)/(4 * srd.accel_count + 1));
@@ -669,15 +914,31 @@ ISR ( TIMER1_COMPA_vect )
 			last_accel_delay = new_step_delay;
 			new_step_delay = srd.min_delay;
 			rest = 0;
-			if (status.zyklen == TRUE)
+			if (status.thread == TRUE)
 			{srd.run_state = AUTO;
-			}else srd.run_state = RUN;
+			status.thread = FALSE;
+			 }else srd.run_state = RUN;
+		}
+		break;
+		
+		case BACKLASH:
+		sm_driver_StepCounter();
+		backlash_count++;
+		new_step_delay = backlash_speed;
+		if (backlash_count >= configuration.backlash_move)
+		{	status.backlash = FALSE;
+			status.encoder_trigger =FALSE;		
+			if(status.thread == TRUE) srd.run_state = STOP;
+			else srd.run_state = ACCEL;
+			backlash_count = 0;
+			new_step_delay = (T1_FREQ_148 * sqrt(A_SQ/accel_stepper))/100;
+			
 		}
 		break;
 		
 		
 		case RUN:
-		sm_driver_StepCounter(srd.dir);
+		sm_driver_StepCounter();
 		step_count++;
 		new_step_delay = srd.min_delay;
 		// Chech if we should start decelration.
@@ -691,17 +952,11 @@ ISR ( TIMER1_COMPA_vect )
 		break;
 		
 		case AUTO: 
-		if(step_count >= srd.decel_start)
-		{	srd.accel_count = srd.decel_val;
-			// Start decelration with same delay as accel ended with.
-			new_step_delay = last_accel_delay;
-			srd.run_state = DECEL;			
-		}
-				
+						
 		break;
 
 		case DECEL:
-		sm_driver_StepCounter(srd.dir);
+		sm_driver_StepCounter();
 		step_count++;
 		srd.accel_count++;
 		new_step_delay = srd.step_delay - (((2 * (long)srd.step_delay) + rest)/(4 * srd.accel_count + 1));
@@ -712,7 +967,183 @@ ISR ( TIMER1_COMPA_vect )
 		}
 		break;
 	}
+	
 	srd.step_delay = new_step_delay;
 	
 }
 
+void io_init()
+{
+	pinMode(S1, INPUT);           // set pin to input
+	digitalWrite(S1, HIGH);       // turn on pullup resistors
+	pinMode(S2, INPUT);           // set pin to input
+	digitalWrite(S2, HIGH);       // turn on pullup resistors
+	pinMode(S3, INPUT);           // set pin to input
+	digitalWrite(S3, HIGH);       // turn on pullup resistors
+	pinMode(S4, INPUT);           // set pin to input
+	digitalWrite(S4, HIGH);       // turn on pullup resistors
+	pinMode(S5, INPUT);           // set pin to input
+	digitalWrite(S5, HIGH);       // turn on pullup resistors
+	pinMode(S6, INPUT);           // set pin to input
+	digitalWrite(S6, HIGH);       // turn on pullup resistors
+	pinMode(up, INPUT);           // set pin to input
+	digitalWrite(up, HIGH);       // turn on pullup resistors
+	pinMode(down, INPUT);           // set pin to input
+	digitalWrite(down, HIGH);       // turn on pullup resistors
+	pinMode(right, INPUT);           // set pin to input
+	digitalWrite(right, HIGH);       // turn on pullup resistors
+	pinMode(left, INPUT);           // set pin to input
+	digitalWrite(left, HIGH);       // turn on pullup resistors
+	pinMode(encoder, INPUT);           // set pin to input
+	digitalWrite(encoder, HIGH);       // turn on pullup resistors
+	
+	pinMode(spindle_PinA, INPUT);
+	pinMode(spindle_PinB, INPUT);
+	pinMode(encoder_PinA, INPUT);
+	pinMode(encoder_PinB, INPUT);
+	
+	pinMode(led1, OUTPUT);           // set pin to output
+	pinMode(led2, OUTPUT);           // set pin to output
+	pinMode(led3, OUTPUT);           // set pin to output
+	pinMode(led4, OUTPUT);           // set pin to output
+	pinMode(tweeter, OUTPUT);        // set pin to output
+
+	pinMode(out3, OUTPUT);           // set pin to output
+	pinMode(dirpin, OUTPUT);		 // set pin to output
+	pinMode(steppin, OUTPUT);		 // set pin to output
+	
+	digitalWrite(led1, HIGH);		 // sets the LED off
+	digitalWrite(led2, HIGH);		 // sets the LED off
+	digitalWrite(led3, HIGH);		 // sets the LED off
+	digitalWrite(led4, HIGH);		 // sets the LED off
+	
+	digitalWrite(dirpin, HIGH);		 // sets the LED off
+	digitalWrite(steppin, HIGH);     // sets the LED off
+	
+	digitalWrite(out3, HIGH);   // sets the LED off
+	
+	
+}
+
+long read_edit_number()
+{
+	if (menue == 0)
+	{ if (edit == 1) return stepper_posi;
+	  if (edit == 3) return configuration.thread_length;
+	  if (edit == 4) return configuration.thread_pitch;	
+	}
+	if (menue == 1)
+	{
+		if (edit == 1) return stepper_posi;
+		if (edit == 3) return configuration.grind_way;
+		if (edit == 4) return configuration.grind_speed;
+	}
+	if (menue == 2)
+	{
+		if (edit == 1) return stepper_posi;
+		if (edit == 3) return configuration.cutting_way;
+		if (edit == 4) return configuration.cutting_speed;
+	}
+	if (menue == 3)
+	{	if (edit == 1) return stepper_posi;
+		if (edit == 2) return configuration.move_way;
+		if (edit == 3) return configuration.move_fast_speed;
+		if (edit == 4) return configuration.move_slow_speed;
+	}
+	if (menue == 4)
+	{
+	}
+}
+
+void  trigger_edit_number(int value)
+{	
+	
+	
+	if (menue == 0)
+	{	if (edit == 1)  stepper_posi += value* (steps_mm/2) ;
+		if (edit == 3)  configuration.thread_length += value * (steps_mm/2);
+		if (edit == 4)  configuration.thread_pitch += value;
+	}
+	if (menue == 1)
+	{
+		if (edit == 1)  stepper_posi += value * (steps_mm/2);
+		if (edit == 3)  configuration.grind_way += value* (steps_mm/2);
+		if (edit == 4)  configuration. grind_speed += (value*2*pi)/(FSPR);
+	}
+	if (menue == 2)
+	{
+		if (edit == 1)  stepper_posi += value * (steps_mm/2);
+		if (edit == 3)  configuration.cutting_way += value* (steps_mm/2);
+		if (edit == 4)  configuration.cutting_speed +=(value*2*pi)/(FSPR);
+	}
+	if (menue == 3)
+	{	if (edit == 1)  stepper_posi += value * (steps_mm/2);
+		if (edit == 2)  configuration.move_way += value * (steps_mm/2);
+		if (edit == 3)  configuration.move_fast_speed += (value*2*pi)/(FSPR);
+		if (edit == 4)  configuration.move_slow_speed += (value*2*pi)/(FSPR);
+	}
+	if (menue == 4)
+	{
+		if (edit == 0)  configuration.delay_move += value;
+		if (edit == 1)  configuration.fast_move += (value*2*pi)/(FSPR);
+		if (edit == 2)  configuration.slow_move += (value*2*pi)/(FSPR);
+		if (edit == 3)  configuration.backlash_move += value;
+	}
+}
+
+void  write_edit_number(int value)
+{
+	
+	
+	if (menue == 0)
+	{	if (edit == 1)  stepper_posi = value;
+		if (edit == 3)  configuration.thread_length = value;
+		if (edit == 4)  configuration.thread_pitch = value;
+	}
+	if (menue == 1)
+	{
+		if (edit == 1)  stepper_posi = value ;
+		if (edit == 3)  configuration.grind_way = value;
+		if (edit == 4)  configuration.grind_speed = value ;
+	}
+	if (menue == 2)
+	{
+		if (edit == 1)  stepper_posi = value ;
+		if (edit == 3)  configuration.cutting_way = value;
+		if (edit == 4)  configuration.cutting_speed = value;
+	}
+	if (menue == 3)
+	{	if (edit == 1)  stepper_posi = value ;
+		if (edit == 2)  configuration.move_way = value;
+		if (edit == 3)  configuration.move_fast_speed = value;
+		if (edit == 4)  configuration.move_slow_speed = value;
+	}
+	if (menue == 4)
+	{
+	}
+}
+
+void write_default_config()
+{
+ configuration.thread_pitch =default_thread_pitch;  // Steigung 2mm entspricht 200, 1.06 entspricht 106... !!
+ configuration.thread_length =default_thread_length; 
+ configuration.grind_way =default_grind_way ;
+ configuration.grind_speed =default_grind_speed ;
+ configuration.cutting_way =default_cutting_way ;
+ configuration.cutting_speed =default_cutting_speed; 
+ configuration.move_way=default_move_way ;
+ configuration.move_fast_speed=default_move_fast_speed ;
+ configuration.move_slow_speed=default_move_slow_speed; 
+configuration.fast_move =default_fast_move ;
+ configuration.slow_move=default_slow_move;
+ configuration.delay_move=default_delay_move ;
+ configuration.backlash_move=default_backlash_move ;
+}
+
+void decl_trigger()
+{
+	srd.accel_count = srd.decel_val;
+	// Start decelration with same delay as accel ended with.
+	new_step_delay = last_accel_delay;
+	srd.run_state = DECEL;
+}
