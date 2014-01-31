@@ -171,7 +171,7 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 	  if (status.running == FALSE &&!digitalRead (S4)) {speed_cntr_Move(-1000,configuration.fast_move);}
 		}
     
-  
+   // Gewinde --------------------------------------------------------
 	if (mode == 1 && menue == 0){
 			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE; status.goback_trigger = FALSE;}
 
@@ -187,7 +187,7 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 										
 		}
 		
-		
+		// Schleifen --------------------------------------
 		if (mode == 1 && menue == 1){
 			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE; status.goback_trigger = FALSE;}
 
@@ -207,17 +207,17 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 			}
 			
 			
-			
-		if (mode == 1 && menue == 2){
+		// Drehen -----------------------------------------	
+		if (mode == 1 && menue == 2){ 
 			
 			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE;}
 				
-			if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
-			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
+			if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
+			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
 										
 		}
 
-		
+		// Bewegen ----------------------------------------
 		if (mode == 1 && menue == 3){
 			
 				  if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.move_way,configuration.move_slow_speed);status.key_pressed = TRUE;}
@@ -251,6 +251,17 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 ;
  
 }
+
+/*
+Menue = 
+
+0 Gewinde
+1 Schleifen
+2 Drehen 
+3 Bewegen
+4 Optionen 
+
+*/
 
 void print_menue ()
 {
@@ -448,6 +459,7 @@ void print_menue ()
 	}
 	
 } 
+
 
 void print_edit_cursor ()
 {
@@ -912,7 +924,7 @@ ISR ( TIMER1_COMPA_vect )
 			srd.accel_count = srd.decel_val;
 			srd.run_state = DECEL;
 		}
-		// Chech if we hitted max speed.
+		// Check if we hitted max speed.
 		else if(new_step_delay <= srd.min_delay) {
 			last_accel_delay = new_step_delay;
 			new_step_delay = srd.min_delay;
@@ -1057,6 +1069,17 @@ long read_edit_number()
 	{
 	}
 }
+
+/*
+edit = 
+
+0 Zeile 1
+1 Zeile 2
+2 Zeile 3
+3 Zeile 4
+4 Zeile 5 
+
+*/
 
 void  trigger_edit_number(int value)
 {	

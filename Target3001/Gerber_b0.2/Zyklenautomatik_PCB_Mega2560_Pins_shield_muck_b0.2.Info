@@ -1,5 +1,5 @@
 CAM-Ausgabe für AktuellesProjekt Zyklenautomatik_PCB_Mega2560_Pins_shield_muck_b0.2.T3001
-Ausgabe am 28. Jan 2014, 15:02h
+Ausgabe am 31. Jan 2014, 13:33h
 AktuellesProjekt erzeugt mit TARGET 16.5.0.72 smart
 Ausgabe erzeugt mit TARGET 3001! V16.5.0.72
 LIEFERANSCHRIFT:
@@ -27,4 +27,4 @@ Zyklenautomatik_PCB_Mega2560_Pins_shield_muck_b0.2.Apr = TARGET 3001! Blendenlis
 Zyklenautomatik_PCB_Mega2560_Pins_shield_muck_b0.2.Whl = Eagle kompatible Blendenliste
 
 
-Achtung: Dünnste Bahn ist kleiner 0,150mm: (0,033 bei 47,453178 | -43,828072) auf Ebene 16
+Achtung: Dünnste Bahn ist kleiner 0,150mm: (0,031 bei 79,0724 | 4,1126) auf Ebene 2
