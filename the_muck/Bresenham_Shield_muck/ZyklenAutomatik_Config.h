@@ -36,16 +36,16 @@
 #define resolution 800  //Resolution Encoder
 
 #define backlash_speed (A_T_x100/1500) 
-#define FSPR 200
-#define steps_mm 100 // aus der Rechnungstabelle
+#define FSPR 400
+#define steps_mm 267 // aus der Rechnungstabelle
 
 #define pi  314
 
 // Speed ramp Data aus der Berechnungstabelle
-#define A_T_x100 3141592
+#define A_T_x100 1570796
 #define T1_FREQ_148 13520
-#define A_SQ 314159265
-#define A_x20000 314
+#define A_SQ 157079632
+#define A_x20000 157
 
 #define accel_stepper 60000 
 
@@ -61,7 +61,7 @@
 #define default_fast_move 6000
 #define default_slow_move 1000
 #define default_delay_move 2
-#define default_backlash_move 200
+#define default_backlash_move 200 // Schritte zur kompensation
 
 // Speed ramp states
 #define STOP  0

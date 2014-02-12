@@ -71,10 +71,13 @@ void setup() {
 	
 	GLCD.Init();  	
 	GLCD.SelectFont(SystemFont5x7);
-	GLCD.CursorTo(0,2);
-	GLCD.print("  ZyklenAutomatik  ");
+	GLCD.CursorTo(3,2);
+	GLCD.print("ZyklenAutomatik");
 	GLCD.EraseTextLine();
-	delay(1000);
+		GLCD.CursorTo(3,5);
+		GLCD.print("CC BY-NC-SA 3.0");
+		GLCD.EraseTextLine();
+	delay(2000);
 	speed_cntr_Init_Timer1();
 	
 	
@@ -179,7 +182,7 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 				
 			if (status.running == FALSE && !digitalRead (S1)&& status.key_pressed == FALSE && status.thread == FALSE) {status.thread = TRUE; status.goback_trigger = TRUE;status.key_pressed = TRUE;stepper_posi_tmp = stepper_posi; speed_cntr_Move(configuration.thread_length,stepper_rad_sec);}	
 		    //  Auto---------------		
-		    if (status.running == FALSE && stepper_posi == (stepper_posi_tmp+configuration.thread_length) && status.goback_trigger == TRUE && mode2 == 1){delay(100*configuration.delay_move);speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.fast_move); status.thread = FALSE; status.goback_trigger = FALSE;}
+		    if (status.running == FALSE && stepper_posi == (stepper_posi_tmp+configuration.thread_length) && status.goback_trigger == TRUE && mode2 == 1){delay(configuration.delay_move);speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.fast_move); status.thread = FALSE; status.goback_trigger = FALSE;}
 			
 			// Toogle Auto---------------
 			if (!digitalRead (left)&& status.key_pressed == FALSE&& status.running == FALSE ) {mode2 = 0; print_menue();status.key_pressed = TRUE;status.thread = FALSE; status.goback_trigger = FALSE;}
@@ -196,8 +199,8 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 			if (status.running == FALSE && !digitalRead (S1)&& status.key_pressed == FALSE && status.goback_trigger == FALSE) {status.goback_trigger = TRUE;status.key_pressed = TRUE;stepper_posi_tmp = stepper_posi; speed_cntr_Move(configuration.grind_way,configuration.grind_speed);status.dir = FALSE;}
 			//  Auto---------------
 			if(mode2 == 1 && status.goback_trigger == TRUE && status.running == FALSE ){ 
-			if (status.dir == FALSE && status.running == FALSE ) {delay(100*configuration.delay_move);speed_cntr_Move(-configuration.grind_way,configuration.grind_speed);status.dir = TRUE;}
-			if (status.dir == TRUE && status.running == FALSE ) {delay(100*configuration.delay_move);speed_cntr_Move(configuration.grind_way,configuration.grind_speed);status.dir = FALSE;}
+			if (status.dir == FALSE && status.running == FALSE ) {delay(configuration.delay_move);speed_cntr_Move(-configuration.grind_way,configuration.grind_speed);status.dir = TRUE;}
+			if (status.dir == TRUE && status.running == FALSE ) {delay(configuration.delay_move);speed_cntr_Move(configuration.grind_way,configuration.grind_speed);status.dir = FALSE;}
 			}
 			
 			// Toogle Auto---------------
@@ -591,7 +594,7 @@ void print_menue_numbers ()
 					  if (status.running == FALSE){
 						  
 						  GLCD.CursorTo(14,1);
-						  GLCD.print(configuration.delay_move);
+						  GLCD.print((float)configuration.delay_move/1000);
 						  GLCD.EraseTextLine();  
 						  GLCD.CursorTo(14,4);
 						  GLCD.print(configuration.backlash_move);
@@ -941,13 +944,23 @@ ISR ( TIMER1_COMPA_vect )
 		backlash_count++;
 		new_step_delay = backlash_speed;
 		if (backlash_count >= configuration.backlash_move)
-		{	status.backlash = FALSE;
+		{	
+			new_step_delay = (T1_FREQ_148 * sqrt(A_SQ/accel_stepper))/100;
+			step_count = 0;
+			rest = 0;
+			// Stop Timer/Counter 1.
+			TCCR1B &= ~((1<<CS12)|(1<<CS11)|(1<<CS10));
+			delay(10);
+			status.backlash = FALSE;
 			status.encoder_trigger =FALSE;		
 			if(status.thread == TRUE) srd.run_state = STOP;
 			else srd.run_state = ACCEL;
-			backlash_count = 0;
-			new_step_delay = (T1_FREQ_148 * sqrt(A_SQ/accel_stepper))/100;
-			
+			backlash_count = 0;			
+			srd.accel_count = 0;
+			OCR1A = 10;
+			// Set Timer/Counter to divide clock by 8
+			TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
+					
 		}
 		break;
 		
@@ -1086,33 +1099,33 @@ void  trigger_edit_number(int value)
 	
 	
 	if (menue == 0)
-	{	if (edit == 1)  stepper_posi += value* (steps_mm/4) ;
-		if (edit == 3)  configuration.thread_length += value * (steps_mm/4);
+	{	if (edit == 1)  stepper_posi += value* (steps_mm) ;
+		if (edit == 3)  configuration.thread_length += value * (steps_mm);
 		if (edit == 4)  configuration.thread_pitch += value;
 	}
 	if (menue == 1)
 	{
-		if (edit == 1)  stepper_posi += value * (steps_mm/4);
-		if (edit == 3)  configuration.grind_way += value* (steps_mm/4);
-		if (edit == 4)  configuration. grind_speed += (value*2*pi*10)/(FSPR);
+		if (edit == 1)  stepper_posi += value * (steps_mm);
+		if (edit == 3)  configuration.grind_way += value* (steps_mm);
+		if (edit == 4)  configuration. grind_speed += (value*2*pi)/(FSPR);
 	}
 	if (menue == 2)
 	{
-		if (edit == 1)  stepper_posi += value * (steps_mm/4);
-		if (edit == 3)  configuration.cutting_way += value* (steps_mm/4);
-		if (edit == 4)  configuration.cutting_speed +=(value*2*pi*10)/(FSPR);
+		if (edit == 1)  stepper_posi += value * (steps_mm);
+		if (edit == 3)  configuration.cutting_way += value* (steps_mm);
+		if (edit == 4)  configuration.cutting_speed +=(value*2*pi)/(FSPR);
 	}
 	if (menue == 3)
-	{	if (edit == 1)  stepper_posi += value * (steps_mm/4);
-		if (edit == 2)  configuration.move_way += value * (steps_mm/4);
-		if (edit == 3)  configuration.move_fast_speed += (value*2*pi*10)/(FSPR);
-		if (edit == 4)  configuration.move_slow_speed += (value*2*pi*10)/(FSPR);
+	{	if (edit == 1)  stepper_posi += value * (steps_mm);
+		if (edit == 2)  configuration.move_way += value * (steps_mm);
+		if (edit == 3)  configuration.move_fast_speed += (value*2*pi)/(FSPR);
+		if (edit == 4)  configuration.move_slow_speed += (value*2*pi)/(FSPR);
 	}
 	if (menue == 4)
 	{
-		if (edit == 0)  configuration.delay_move += value;
-		if (edit == 1)  configuration.fast_move += (value*2*pi*10)/(FSPR);
-		if (edit == 2)  configuration.slow_move += (value*2*pi*10)/(FSPR);
+		if (edit == 0)  configuration.delay_move += value*10;
+		if (edit == 1)  configuration.fast_move += (value*2*pi)/(FSPR);
+		if (edit == 2)  configuration.slow_move += (value*2*pi)/(FSPR);
 		if (edit == 3)  configuration.backlash_move += value;
 	}
 }

@@ -614,6 +614,9 @@ location.sketchbook=C:\Users\Malte\Documents\Arduino
     <Folder Include="Visual Micro\" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EEPROMAnything.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="Visual Micro\.Bresenham_Shield_muck.vsarduino.h">
       <SubType>compile</SubType>
     </Compile>

@@ -1,0 +1,18 @@
+/* TO DO 
+- Aufräumen
+- Kommentare
+- delay(); Funktion entfernen
+- Shönere Struktur, If anweisungen - > switch / case 
+- Programm Verriegelungen 
+- Entprellroutine ?
+- Winkel Positions Anzege
+- Visualisierung LEDs, Töne 
+- Variablen größe
+- Bresenham rirchtung
+- Zahlenwerte Negativ verriegeln 
+-....
+*/
+
+BUGs
+
+-
