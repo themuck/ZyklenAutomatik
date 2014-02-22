@@ -22,11 +22,11 @@ Pins - Funktion RJ45 (Endstufe)
 8- GND
 7- Arduino 11 (Status Eingang)
 6- 5V
-5- Arduino 8 (Ausganag Enable)
+5- Arduino 8 Dir Pin
 4- 5V
-3- Arduino 9 Dir Pin
+3- Arduino 9 Step Pin
 2- GND
-1- Arduino 10 Step Pin
+1- Arduino 10 Enable
 
 ----------------
 S1- Arduino 42
