@@ -68,7 +68,8 @@ void setup() {
 	attachInterrupt(3, doEncoderB, RISING );	 
 	attachInterrupt(0, doSpindleA, CHANGE);
 	attachInterrupt(1, doSpindleB, CHANGE);
-	
+        attachInterrupt(2, doSpindleZ, CHANGE);
+  
 	GLCD.Init();  	
 	GLCD.SelectFont(SystemFont5x7);
 	GLCD.CursorTo(3,2);
@@ -241,10 +242,11 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 		ulTimeHelp = (ulMillisHelp + 1000);
 		   
 		   spindle_rpm =  (spindel_puls_s*60)/(resolution) ;
+          if(status.running == FALSE){
 		   stepper_steps_pr = ((long)configuration.thread_pitch * steps_mm)/100;
 		   stepper_rad_sec = ((long)2*spindle_rpm*pi*stepper_steps_pr)/((long)FSPR*60);
 		   steps_toaccel = (long)stepper_rad_sec*stepper_rad_sec/(long)(((long)A_x20000*accel_stepper)/100);
-		   
+		   }
 					       
     }	
 	  
@@ -505,7 +507,7 @@ void print_menue_numbers ()
 		  case 0: // Gewinde ---------------------------
 		  if (status.running == FALSE){
 			 GLCD.CursorTo(14,1);
-			GLCD.PrintNumber(spindle_rpm);
+			GLCD.PrintNumber(spindle_angle);
 			GLCD.EraseTextLine();
 			  
 			GLCD.CursorTo(14,3);
@@ -638,7 +640,7 @@ void doSpindleA(){
   if (spindle_angle < 0){spindle_angle = resolution-1 ;}
 
  // Einkoppeln der Spindel
- if (spindle_angle == 0 && status.thread == TRUE && status.backlash == FALSE)
+ if (digitalRead (spindle_PinZ) && status.thread == TRUE && status.backlash == FALSE)
  {	 srd.run_state = ACCEL;
 	 srd.accel_count = 0;
 	 
@@ -653,7 +655,7 @@ void doSpindleA(){
  
 	 fehler = fehler-stepper_steps_pr;
 	 if (fehler < 0 )
-	 { sm_driver_StepCounter();
+	 { sm_driver_StepOutput();
 		 step_count++;
 		 fehler = fehler + resolution;
 	 }
@@ -679,7 +681,7 @@ void doSpindleB(){
   if (spindle_angle < 0){spindle_angle = resolution-1 ;}
 	  
 // Einkoppeln der Spindel 
-	 if (spindle_angle  == 0 && status.thread == TRUE && status.backlash == FALSE)
+	 if (digitalRead (spindle_PinZ) && status.thread == TRUE && status.backlash == FALSE)
 	 {	 srd.run_state = ACCEL;
 		 srd.accel_count = 0;
 		 
@@ -695,7 +697,7 @@ void doSpindleB(){
 	 
 	 fehler = fehler-stepper_steps_pr;
 	 if (fehler < 0 )
-	 { sm_driver_StepCounter();
+	 { sm_driver_StepOutput();
 		 step_count++;
 		 fehler = fehler + resolution;
 	 }
@@ -713,48 +715,26 @@ void doSpindleB(){
   
 
 }
-// über bleibsel....
-void sm_driver_StepCounter()
-{
-	if (srd.run_state != AUTO)
-	{
-	sm_driver_StepOutput();
-	}else bresenham_StepOutput();
-}
 
 void sm_driver_StepOutput()
 {
 	
 	if (srd.dir == CW){
-		digitalWrite(dirpin, LOW);   // sets the LED on
+		digitalWrite(dirpin, HIGH);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
 		if(srd.run_state != BACKLASH) stepper_posi++;
 	}
 	else{
 		if(srd.run_state != BACKLASH) stepper_posi--;
-		digitalWrite(dirpin, HIGH);   // sets the LED on
-		digitalWrite(steppin, LOW);   // sets the LED on
-	}
-	digitalWrite(steppin, HIGH);   // sets the LED on
-
-}
-
-void bresenham_StepOutput()
-{
-	
-	if (srd.dir == CW){
 		digitalWrite(dirpin, LOW);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
-		stepper_posi++;
 	}
-	else{
-		stepper_posi--;
-		digitalWrite(dirpin, HIGH);   // sets the LED on
-		digitalWrite(steppin, LOW);   // sets the LED on
-	}
-	digitalWrite(steppin, HIGH);   // sets the LED on
+   delayMicroseconds(stepper_delay);
+   digitalWrite(steppin, HIGH);   // sets the LED on
 
 }
+
+
 
 void speed_cntr_Move(signed int step, unsigned int speed)
 {
@@ -905,7 +885,8 @@ ISR ( TIMER1_COMPA_vect )
 	OCR1A = srd.step_delay;
 
 	switch(srd.run_state) {
-		case STOP:		
+		case STOP:	
+              fehler = resolution/2;	
 		step_count = 0;
 		rest = 0;
 		// Stop Timer/Counter 1.
@@ -917,7 +898,7 @@ ISR ( TIMER1_COMPA_vect )
 		break;
 
 		case ACCEL:
-		sm_driver_StepCounter();
+		sm_driver_StepOutput();
 		step_count++;
 		srd.accel_count++;
 		new_step_delay = srd.step_delay - (((2 * (long)srd.step_delay) + rest)/(4 * srd.accel_count + 1));
@@ -940,33 +921,34 @@ ISR ( TIMER1_COMPA_vect )
 		break;
 		
 		case BACKLASH:
-		sm_driver_StepCounter();
+		sm_driver_StepOutput();
 		backlash_count++;
 		new_step_delay = backlash_speed;
 		if (backlash_count >= configuration.backlash_move)
 		{	
-			new_step_delay = (T1_FREQ_148 * sqrt(A_SQ/accel_stepper))/100;
-			step_count = 0;
-			rest = 0;
-			// Stop Timer/Counter 1.
-			TCCR1B &= ~((1<<CS12)|(1<<CS11)|(1<<CS10));
-			delay(10);
-			status.backlash = FALSE;
-			status.encoder_trigger =FALSE;		
-			if(status.thread == TRUE) srd.run_state = STOP;
-			else srd.run_state = ACCEL;
-			backlash_count = 0;			
-			srd.accel_count = 0;
-			OCR1A = 10;
-			// Set Timer/Counter to divide clock by 8
-			TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
+			
+				  new_step_delay = (T1_FREQ_148 * sqrt(A_SQ/accel_stepper))/100;
+                                  step_count = 0;
+                                  rest = 0;
+                                  backlash_count = 0;	
+                                  srd.accel_count = 0;
+                                                         
+                                  status.backlash = FALSE;
+                                  status.encoder_trigger =FALSE;	
+                                  if(status.thread == TRUE) srd.run_state = STOP;
+                                  else {srd.run_state = ACCEL;
+                                
+                                  OCR1A = 10;
+                                  // Set Timer/Counter to divide clock by 8
+                                  TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));}
+			
 					
 		}
 		break;
 		
 		
 		case RUN:
-		sm_driver_StepCounter();
+		sm_driver_StepOutput();
 		step_count++;
 		new_step_delay = srd.min_delay;
 		// Chech if we should start decelration.
@@ -984,7 +966,7 @@ ISR ( TIMER1_COMPA_vect )
 		break;
 
 		case DECEL:
-		sm_driver_StepCounter();
+		sm_driver_StepOutput();
 		step_count++;
 		srd.accel_count++;
 		new_step_delay = srd.step_delay - (((2 * (long)srd.step_delay) + rest)/(4 * srd.accel_count + 1));
@@ -1027,6 +1009,7 @@ void io_init()
 	
 	pinMode(spindle_PinA, INPUT);
 	pinMode(spindle_PinB, INPUT);
+        pinMode(spindle_PinZ, INPUT);
 	pinMode(encoder_PinA, INPUT);
 	pinMode(encoder_PinB, INPUT);
 	
@@ -1118,14 +1101,14 @@ void  trigger_edit_number(int value)
 	if (menue == 3)
 	{	if (edit == 1)  stepper_posi += value * (steps_mm);
 		if (edit == 2)  configuration.move_way += value * (steps_mm);
-		if (edit == 3)  configuration.move_fast_speed += (value*2*pi)/(FSPR);
-		if (edit == 4)  configuration.move_slow_speed += (value*2*pi)/(FSPR);
+		if (edit == 3)  configuration.move_fast_speed += (value*2*pi)/(FSPR)*100;
+		if (edit == 4)  configuration.move_slow_speed += (value*2*pi)/(FSPR)*100;
 	}
 	if (menue == 4)
 	{
 		if (edit == 0)  configuration.delay_move += value*10;
-		if (edit == 1)  configuration.fast_move += (value*2*pi)/(FSPR);
-		if (edit == 2)  configuration.slow_move += (value*2*pi)/(FSPR);
+		if (edit == 1)  configuration.fast_move += (value*2*pi)/(FSPR)*100;
+		if (edit == 2)  configuration.slow_move += (value*2*pi)/(FSPR)*100;
 		if (edit == 3)  configuration.backlash_move += value;
 	}
 }
@@ -1189,4 +1172,8 @@ void decl_trigger()
 	// Start decelration with same delay as accel ended with.
 	new_step_delay = last_accel_delay;
 	srd.run_state = DECEL;
+}
+
+void doSpindleZ(){
+  
 }
