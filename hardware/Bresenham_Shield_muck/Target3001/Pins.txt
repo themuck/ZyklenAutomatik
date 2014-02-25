@@ -1,12 +1,12 @@
-Pins - Funktion RJ45 (Encoder A,A' / B, B' / Z,Z')
-8- GND
-7- 5V
-6- B+
-5- Z-
-4- Z+
-3- B-
-2- A-
-1- A+
+﻿Pins - Funktion RJ45 (Encoder A,A' / B, B' / Z,Z')
+8- GND 	BR
+7- 5V	BR/W
+6- B+	GR
+5- Z-	BL/w
+4- Z+	BL
+3- B-	GR/W
+2- A- 	OR
+1- A+	OR/W
 ---------------
 Pins - Funktion RJ45 (Encoder A/B/Z und Eingänge (Endschalter) )
 8- GND
@@ -22,11 +22,11 @@ Pins - Funktion RJ45 (Endstufe)
 8- GND
 7- Arduino 11 (Status Eingang)
 6- 5V
-5- Arduino 8 (Ausganag Enable)
+5- Arduino 8 Dir Pin
 4- 5V
-3- Arduino 9 Dir Pin
+3- Arduino 9 Step Pin
 2- GND
-1- Arduino 10 Step Pin
+1- Arduino 10 Enable
 
 ----------------
 S1- Arduino 42
