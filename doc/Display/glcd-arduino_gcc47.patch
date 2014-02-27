@@ -1,0 +1,31 @@
+Index: glcd/fonts/allFonts.h
+===================================================================
+--- glcd/fonts/allFonts.h	(Revision 442)
++++ glcd/fonts/allFonts.h	(Arbeitskopie)
+@@ -8,6 +8,18 @@
+  * so there is no penalty to including a font file here if its not used 
+  */
+ 
++#ifdef __GNUC__
++    /* fix for gcc version 4.7 */
++    #undef _GCC_VERSION
++
++    #define _GCC_VERSION (__GNUC__ * 10000 \
++                                   + __GNUC_MINOR__ * 100 \
++                                   + __GNUC_PATCHLEVEL__)
++     #if _GCC_VERSION >= 40700
++        #define uint8_t const uint8_t
++     #endif
++#endif
++
+ #include "SystemFont5x7.h"       // system font
+ #include "Arial14.h"             // proportional font
+ #include "Arial_bold_14.h"       // Bold proportional font
+@@ -15,4 +27,6 @@
+ #include "Verdana_digits_24.h"   // large proportional font - numerals only 
+ #include "fixednums7x15.h"       // fixed width font - numerals only 
+ #include "fixednums8x16.h"       // fixed width font - numerals only 
+-#include "fixednums15x31.h"      // fixed width font - numerals only 
++#include "fixednums15x31.h"      // fixed width font - numerals only
++
++#undef uint8_t
