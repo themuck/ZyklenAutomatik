@@ -90,7 +90,7 @@ typedef struct
 	//! Sets deceleration rate.
 	signed int decel_val;
 	//! Minimum time delay (max speed)
-	signed int min_delay;
+	unsigned int min_delay;
 	//! Counter used when accelerateing/decelerateing to calculate step_delay.
 	signed int accel_count;
 } speedRampData;

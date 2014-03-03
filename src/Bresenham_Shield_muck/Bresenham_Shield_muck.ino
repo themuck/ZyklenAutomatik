@@ -385,63 +385,69 @@ void loop()
 		// Drehen -----------------------------------------	
 		if (menue == 2)
 		{
-
-			if (status.running == TRUE && (!digitalRead(S2) || !digitalRead(S3))
-					&& status.key_pressed == FALSE)
+			if (status.running == TRUE)
 			{
-				decl_trigger();
-
-				status.key_pressed = TRUE;
-			}
-
-			if (status.running == FALSE && !digitalRead(S1)
+				if ((!digitalRead(S2) || !digitalRead(S3))
+				
 					&& status.key_pressed == FALSE)
-			{
-				speed_cntr_Move(configuration.cutting_way,
-						configuration.cutting_speed);
-				status.key_pressed = TRUE;
+				{
+					decl_trigger();
+	
+					status.key_pressed = TRUE;
+				}
 			}
-			if (status.running == FALSE && !digitalRead(S4)
-					&& status.key_pressed == FALSE)
+			else // if (status.running == FALSE)
 			{
-				speed_cntr_Move(-configuration.cutting_way,
-						configuration.cutting_speed);
-				status.key_pressed = TRUE;
+				if (status.key_pressed == FALSE)
+				{
+					if (!digitalRead(S1))
+					{
+						speed_cntr_Move(configuration.cutting_way,
+								configuration.cutting_speed);
+						status.key_pressed = TRUE;
+					}
+					if (!digitalRead(S4))
+					{
+						speed_cntr_Move(-configuration.cutting_way,
+								configuration.cutting_speed);
+						status.key_pressed = TRUE;
+					}
+				}
 			}
-
 		}
 
 		// Bewegen ----------------------------------------
 		if (menue == 3)
 		{
-
-			if (status.running == FALSE && !digitalRead(S1)
-					&& status.key_pressed == FALSE)
+			if (status.running == FALSE)
 			{
-				speed_cntr_Move(configuration.move_way,
-						configuration.move_slow_speed);
-				status.key_pressed = TRUE;
-			}
-			if (status.running == FALSE && !digitalRead(S2)
-					&& status.key_pressed == FALSE)
-			{
-				speed_cntr_Move(-configuration.move_way,
-						configuration.move_slow_speed);
-				status.key_pressed = TRUE;
-			}
-			if (status.running == FALSE && !digitalRead(S3)
-					&& status.key_pressed == FALSE)
-			{
-				speed_cntr_Move(configuration.move_way,
-						configuration.move_fast_speed);
-				status.key_pressed = TRUE;
-			}
-			if (status.running == FALSE && !digitalRead(S4)
-					&& status.key_pressed == FALSE)
-			{
-				speed_cntr_Move(-configuration.move_way,
-						configuration.move_fast_speed);
-				status.key_pressed = TRUE;
+				if (status.key_pressed == FALSE)
+				{
+					if (!digitalRead(S1))
+					{
+						speed_cntr_Move(configuration.move_way,
+								configuration.move_slow_speed);
+						status.key_pressed = TRUE;
+					}
+					if (!digitalRead(S2))
+					{
+						speed_cntr_Move(-configuration.move_way,
+								configuration.move_slow_speed);
+						status.key_pressed = TRUE;
+					}
+					if (!digitalRead(S3))
+					{
+						speed_cntr_Move(configuration.move_way,
+								configuration.move_fast_speed);
+						status.key_pressed = TRUE;
+					}
+					if (!digitalRead(S4))
+					{
+						speed_cntr_Move(-configuration.move_way,
+								configuration.move_fast_speed);
+						status.key_pressed = TRUE;
+					}
+				}
 			}
 		}
 	}
@@ -454,6 +460,7 @@ void loop()
 		ulTimeHelp = (ulMillisHelp + 1000);
 
 		spindle_rpm = (spindel_puls_s * 60) / (resolution);
+
 		if (status.running == FALSE)
 		{
 			stepper_steps_pr = ((long) configuration.thread_pitch * steps_mm) / 100;
@@ -1155,7 +1162,7 @@ void speed_cntr_Init_Timer1(void)
 ISR ( TIMER1_COMPA_vect )
 {
 	static unsigned int backlash_count = 0;
-	static unsigned int backlash_count_stepdelay = 0;
+	// static unsigned int backlash_count_stepdelay = 0;
 	// Counting steps when moving.
 	// Keep track of remainder from new_step-delay calculation to incrase accurancy
 	static unsigned int rest = 0;
@@ -1359,6 +1366,8 @@ long read_edit_number()
 	if (menue == 4)
 	{
 	}
+	
+	return stepper_posi;
 }
 
 /*
