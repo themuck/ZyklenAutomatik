@@ -3,17 +3,19 @@
 // https://github.com/themuck/ZyklenAutomatik
 
 /* TO DO 
+ - DigitalRead(), DigitalWrite() durch direkten GPIO-Zugriff ersetzen
+ - Steps abschliessen durch Timer-Int, nicht per delay (sh. https://github.com/grbl/grbl/blob/master/stepper.c#L321)
  - Aufräumen
  - Kommentare
  - delay(); Funktion entfernen
- - Shönere Struktur, If anweisungen - > switch / case 
+ - Schönere Struktur, if Anweisungen - > switch / case 
  - Programm Verriegelungen 
  - Entprellroutine ?
  - Winkel Positions Anzege
  - Visualisierung LEDs, Töne 
- - Variablen größe
- - Bresenham rirchtung
- - Zahlenwerte Negativ verriegeln 
+ - Variablen Größe
+ - Bresenham Richtung
+ - Zahlenwerte negativ verriegeln 
  -....
  */
 
