@@ -881,12 +881,22 @@ void doEncoderB()
 		trigger_edit_number(+1);
 	}
 }
+
 // Interrupt on A changing state
 void doSpindleA()
 {
-	spindle_Bnew ^ spindle_Aold ? spindle_posi++ : spindle_posi--;
-	spindle_Bnew ^ spindle_Aold ? spindle_angle++ : spindle_angle--;
-	spindle_Bnew ^ spindle_Aold ? spindle_dir = CW : spindle_dir = CCW;
+	if (spindle_Bnew ^ spindle_Aold)
+	{
+		spindle_posi++;
+		spindle_angle++;
+		spindle_dir = CW;
+	}
+	else
+	{
+		spindle_posi--;
+		spindle_angle--;
+		spindle_dir = CCW;
+	}
 	uiInterruptCountHelp++;
 
 	// winkelpositionen !! 0 und resolution liegen auf einem punkt, 0 = resolution!!
@@ -923,7 +933,7 @@ void doSpindleA()
 			fehler = fehler + resolution;
 		}
 		new_step_delay = srd.min_delay;
-		if (step_count >= srd.decel_start) // Abbruch bedingung
+		if (step_count >= srd.decel_start) // Abbruchbedingung
 		{
 			decl_trigger();
 		}
@@ -931,14 +941,24 @@ void doSpindleA()
 	spindle_Aold = digitalRead(spindle_PinA);
 
 }
+
 // Interrupt on B changing state
 void doSpindleB()
 {
 	spindle_Bnew = digitalRead(spindle_PinB);
 
-	spindle_Bnew ^ spindle_Aold ? spindle_posi++ : spindle_posi--;
-	spindle_Bnew ^ spindle_Aold ? spindle_angle++ : spindle_angle--;
-	spindle_Bnew ^ spindle_Aold ? spindle_dir = CW : spindle_dir = CCW;
+	if (spindle_Bnew ^ spindle_Aold )
+	{
+		spindle_posi++;
+		spindle_angle++;
+		spindle_dir = CW;
+	}
+	else
+	{
+		spindle_posi--;
+		spindle_angle--;
+		spindle_dir = CCW;
+	}
 	uiInterruptCountHelp++;
 	// winkelpositionen !! 0 und resolution liegen auf einem punkt, 0 = resolution!!
 	if (spindle_angle >= resolution)
@@ -975,7 +995,7 @@ void doSpindleB()
 		}
 
 		new_step_delay = srd.min_delay;
-		if (step_count >= srd.decel_start) // Abbruch bedingung 
+		if (step_count >= srd.decel_start) // Abbruchbedingung 
 		{
 			new_step_delay = srd.min_delay;
 
@@ -985,7 +1005,6 @@ void doSpindleB()
 			}
 		}
 	}
-
 }
 
 void sm_driver_StepOutput()
@@ -996,12 +1015,16 @@ void sm_driver_StepOutput()
 		digitalWrite(dirpin, HIGH);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
 		if (srd.run_state != BACKLASH)
+		{
 			stepper_posi++;
+		}
 	}
 	else
 	{
 		if (srd.run_state != BACKLASH)
+		{
 			stepper_posi--;
+		}
 		digitalWrite(dirpin, LOW);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
 	}
@@ -1034,7 +1057,9 @@ void speed_cntr_Move(signed int step, unsigned int speed)
 		status.backlash = TRUE;
 	}
 	else
+	{
 		status.backlash_trigger = FALSE;
+	}
 
 	srd.dir_old = srd.dir;
 
@@ -1177,7 +1202,10 @@ ISR ( TIMER1_COMPA_vect )
 		rest = 0;
 		// Stop Timer/Counter 1.
 		TCCR1B &= ~((1<<CS12)|(1<<CS11)|(1<<CS10));
-		if(status.thread == FALSE)status.running = FALSE;
+		if (status.thread == FALSE)
+		{
+			status.running = FALSE;
+		}
 
 		break;
 
@@ -1189,23 +1217,27 @@ ISR ( TIMER1_COMPA_vect )
 		srd.accel_count++;
 		new_step_delay = srd.step_delay - (((2 * (long)srd.step_delay) + rest)/(4 * srd.accel_count + 1));
 		rest = ((2 * (long)srd.step_delay)+rest)%(4 * srd.accel_count + 1);
-		// Chech if we should start decelration.
+		// Check if we should start deceleration.
 		if(step_count >= srd.decel_start)
 		{
 			srd.accel_count = srd.decel_val;
 			srd.run_state = DECEL;
 		}
-		// Check if we hitted max speed.
+		// Check if we hit max speed.
 		else if(new_step_delay <= srd.min_delay)
 		{
 			last_accel_delay = new_step_delay;
 			new_step_delay = srd.min_delay;
 			rest = 0;
 			if (status.thread == TRUE)
-			{	srd.run_state = AUTO;
-			status.thread = FALSE;
+			{
+				srd.run_state = AUTO;
+				status.thread = FALSE;
 			}
-			else srd.run_state = RUN;
+			else
+			{
+				srd.run_state = RUN;
+			}
 		}
 		break;
 
@@ -1224,13 +1256,18 @@ ISR ( TIMER1_COMPA_vect )
 
 			status.backlash = FALSE;
 			status.encoder_trigger =FALSE;
-			if(status.thread == TRUE) srd.run_state = STOP;
+			if (status.thread == TRUE)
+			{
+				srd.run_state = STOP;
+			}
 			else
-			{	srd.run_state = ACCEL;
+			{
+				srd.run_state = ACCEL;
 
-			OCR1A = 10;
-			// Set Timer/Counter to divide clock by 8
-			TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));}
+				OCR1A = 10;
+				// Set Timer/Counter to divide clock by 8
+				TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
+			}
 
 		}
 		break;
@@ -1239,11 +1276,11 @@ ISR ( TIMER1_COMPA_vect )
 		sm_driver_StepOutput();
 		step_count++;
 		new_step_delay = srd.min_delay;
-		// Chech if we should start decelration.
-		if(step_count >= srd.decel_start && digitalRead (S1) && digitalRead (S2)&& digitalRead (S3) && digitalRead (S4))
+		// Check if we should start deceleration.
+		if (step_count >= srd.decel_start && digitalRead (S1) && digitalRead (S2)&& digitalRead (S3) && digitalRead (S4))
 		{
 			srd.accel_count = srd.decel_val;
-			// Start decelration with same delay as accel ended with.
+			// Start deceleration with same delay as accel ended with.
 			new_step_delay = last_accel_delay;
 			srd.run_state = DECEL;
 		}
@@ -1259,7 +1296,7 @@ ISR ( TIMER1_COMPA_vect )
 		srd.accel_count++;
 		new_step_delay = srd.step_delay - (((2 * (long)srd.step_delay) + rest)/(4 * srd.accel_count + 1));
 		rest = ((2 * (long)srd.step_delay)+rest)%(4 * srd.accel_count + 1);
-		// Check if we at last step
+		// Check if we are at last step
 		if(srd.accel_count >= 0)
 		{
 			srd.run_state = STOP;
