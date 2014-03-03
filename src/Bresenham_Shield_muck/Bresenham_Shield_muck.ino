@@ -31,9 +31,9 @@ int spindle_angle = 0; //Winkel
 boolean spindle_dir;
 unsigned int spindle_rpm = 0;
 
-long uiInterruptCountHelp = 0; // hilfsZÃƒÂ¤her fÃƒÂ¼r die rpm Messung
-long spindel_puls_s = 0; // ZÃƒÂ¤her fÃƒÂ¼r die rpm Messung 
-long ulTimeHelp, ulMillisHelp; // Zeit speicher fÃƒÂ¼r die Messung
+long uiInterruptCountHelp = 0; // Hilfszähler für die rpm Messung
+long spindel_puls_s = 0; // Zähler für die rpm Messung 
+long ulTimeHelp, ulMillisHelp; // Zeitspeicher für die Messung
 
 boolean spindle_Aold = 1;
 boolean spindle_Bnew = 0;
@@ -83,21 +83,25 @@ void setup()
 	delay(2000);
 	speed_cntr_Init_Timer1();
 
-	if (!digitalRead(encoder)) // Lade Defalut werte und nicht den Speicher
+	if (!digitalRead(encoder)) // Lade default Werte und nicht den Speicher
 	{
 		digitalWrite(led2, LOW);
 		GLCD.CursorTo(0, 3);
 		GLCD.print("load default values");
 		GLCD.EraseTextLine();
 		while (!digitalRead(encoder))
-			;
+		{
+			// wait for encoder usage
+		}
 		delay(1000);
 		digitalWrite(led2, HIGH);
 		write_default_config();
 
 	}
 	else
+	{
 		EEPROM_readAnything(0, configuration);
+	}
 
 	print_menue();
 	print_edit_cursor();
@@ -106,10 +110,10 @@ void setup()
 	GLCD.DrawHLine(0, 54, 127);
 	GLCD.DrawVLine(3, 0, 49);
 }
+
 void loop()
 {
-	//Check each changes in position
-
+	//Check each change in position
 	print_menue_numbers();
 
 	if ((!digitalRead(right) || !digitalRead(left))
@@ -202,7 +206,9 @@ void loop()
 		digitalWrite(led4, LOW);
 	}
 	else
+	{
 		digitalWrite(led4, HIGH);
+	}
 
 	// *****************************************************Programm Funktionen--------------------------------------------------------------------------  
 
@@ -453,7 +459,7 @@ void loop()
 			|| !digitalRead(up) || !digitalRead(down) || !digitalRead(encoder)))
 	{
 		status.key_pressed = FALSE;
-	};
+	}
 
 }
 
@@ -979,21 +985,19 @@ void sm_driver_StepOutput()
 		digitalWrite(dirpin, LOW);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
 	}
+
 	delayMicroseconds (stepper_delay);
 	digitalWrite(steppin, HIGH);   // sets the LED on
-
 }
 
 void speed_cntr_Move(signed int step, unsigned int speed)
 {
-
 	//! Number of steps before we hit max speed.
 	unsigned int max_s_lim;
 	//! Number of steps before we must start deceleration (if accel does not hit max speed).
 	unsigned int accel_lim;
 
-	// Set direction from sign on step value.
-
+	// Set direction from sign of step value.
 	if (step < 0)
 	{
 		srd.dir = CCW;
@@ -1137,7 +1141,6 @@ void speed_cntr_Init_Timer1(void)
 
 ISR ( TIMER1_COMPA_vect )
 {
-
 	static unsigned int backlash_count = 0;
 	static unsigned int backlash_count_stepdelay = 0;
 	// Counting steps when moving.
@@ -1245,7 +1248,6 @@ ISR ( TIMER1_COMPA_vect )
 	}
 
 	srd.step_delay = new_step_delay;
-
 }
 
 void io_init()
