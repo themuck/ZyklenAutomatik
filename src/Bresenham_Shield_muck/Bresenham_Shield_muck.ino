@@ -288,7 +288,7 @@ void loop()
 					status.goback_trigger = FALSE;
 				}
 
-				if (status.key_pressed == FALSE))
+				if (status.key_pressed == FALSE)
 				{
 					// Toogle Auto---------------
 					if (!digitalRead(left))
@@ -313,7 +313,7 @@ void loop()
 		{
 			if (status.running == TRUE)
 			{
-				if (!digitalRead(S2) || !digitalRead(S3))
+				if ((!digitalRead(S2) || !digitalRead(S3))
 					&& status.key_pressed == FALSE)
 				{
 					decl_trigger();
