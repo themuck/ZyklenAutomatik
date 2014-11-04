@@ -5,3 +5,6 @@ Thumbs.db
 *.o
 *.hex
 *.elf
+.dep/
+.lib/
+build-*/
