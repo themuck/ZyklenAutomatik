@@ -20,7 +20,7 @@
  */
 
 #include "Bresenham_Shield_muck.h"
-#include <glcd.h>
+#include <openGLCD.h>
 #include "ZyklenAutomatik_Config.h"
 #include <fonts/allFonts.h>
 #include "EEPROMAnything.h"
