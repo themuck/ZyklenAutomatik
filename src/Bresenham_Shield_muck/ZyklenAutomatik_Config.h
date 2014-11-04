@@ -1,5 +1,5 @@
 // include the library header
-#include <glcd.h>
+#include <openGLCD.h>
 #include <fonts/allFonts.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
