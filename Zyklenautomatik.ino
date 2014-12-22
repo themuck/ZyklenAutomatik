@@ -22,13 +22,28 @@
 #include <fonts/allFonts.h>
 #include "EEPROMAnything.h"
 #include <EEPROM.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+int zeta[][4] = {                 {  0, -1, +1,  0 },
+                                  { +1,  0,  0, -1 },
+                                  { -1,  0,  0, +1 },
+                                  {  0, +1, -1,  0 }
+                                };
+int encRaster = 4;    // Rasterstopps: 1,2 oder 4
+int encState  = 0;    // Aktueller Zustand
+int encDelta  = 0;    // Positionsveränderung
+int encAB  =0  ;         // Eingabe aus A und B
 
 long fehler = resolution/2; 
 
 long spindle_posi = 0; //absolut 
 int spindle_angle = 0; //Winkel
 boolean spindle_dir;
+int spindle_start;
+int spindle_flag;
 unsigned int spindle_rpm = 0;
+char rotation ;
 
 long uiInterruptCountHelp=0; // hilfsZÃƒÂ¤her fÃƒÂ¼r die rpm Messung
 long spindel_puls_s=0; // ZÃƒÂ¤her fÃƒÂ¼r die rpm Messung 
@@ -38,9 +53,18 @@ boolean spindle_Aold = 1;
 boolean spindle_Bnew = 0;
 
 long encoder_posi = 0;
+long encoderEXT_posi = 0;
+
+boolean encoderEXT_dir ;
+
+unsigned int backlashB_count = 0;	
 
 boolean encoder_Aold = 1;
 boolean encoder_Bnew = 0;
+boolean encoderEXT_Aold = 1;
+boolean encoderEXT_Bnew = 0;
+
+long stepperB_posi = 0;
 
 long stepper_rad_sec;
 long stepper_posi = 0;
@@ -62,13 +86,21 @@ unsigned int new_step_delay;
 	// Remember the last step delay used when accelrating.
 static int last_accel_delay;
 
+static unsigned int step_count_temp = 0;
+// Holds next delay period.
+unsigned int new_step_delay_temp;
+// Remember the last step delay used when accelrating.
+static int last_accel_delay_temp;
+
 void setup() {  
 	io_init(); 
 		
-	attachInterrupt(3, doEncoderB, RISING );	 
+	attachInterrupt(5, doEncoderB, FALLING);	 
 	attachInterrupt(0, doSpindleA, CHANGE);
 	attachInterrupt(1, doSpindleB, CHANGE);
-        attachInterrupt(2, doSpindleZ, CHANGE);
+        attachInterrupt(2, doSpindleZ, FALLING);
+        attachInterrupt(3, doEncoderEXTA, CHANGE);
+        attachInterrupt(4, doEncoderEXTB, CHANGE);
   
 	GLCD.Init();  	
 	GLCD.SelectFont(SystemFont5x7);
@@ -100,9 +132,10 @@ void setup() {
 	 GLCD.DrawHLine(0,50,127);
 	 GLCD.DrawHLine(0,54,127);
 	 GLCD.DrawVLine(3,0,49);
+
 }
 void loop(){
-  //Check each changes in position
+ 
   
 print_menue_numbers();
 
@@ -169,19 +202,38 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
     // *****************************************************Programm Funktionen--------------------------------------------------------------------------  
 	
   if (mode == 0 && menue != 4){
-	  if (status.running == FALSE &&!digitalRead (S1)) {speed_cntr_Move(100,configuration.slow_move);}
-	  if (status.running == FALSE &&!digitalRead (S2)) {speed_cntr_Move(-100,configuration.slow_move);}
-	  if (status.running == FALSE &&!digitalRead (S3)) {speed_cntr_Move(1000,configuration.fast_move);}
-	  if (status.running == FALSE &&!digitalRead (S4)) {speed_cntr_Move(-1000,configuration.fast_move);}
+	  if (status.running == FALSE &&!digitalRead (S1)) {speed_cntr_Move(-100,configuration.slow_move);}
+	  if (status.running == FALSE &&!digitalRead (S2)) {speed_cntr_Move(100,configuration.slow_move);}
+	  if (status.running == FALSE &&!digitalRead (S3)) {speed_cntr_Move(-1000,configuration.fast_move);}
+	  if (status.running == FALSE &&!digitalRead (S4)) {speed_cntr_Move(1000,configuration.fast_move);}
 		}
     
    // Gewinde --------------------------------------------------------
 	if (mode == 1 && menue == 0){
-			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE; status.goback_trigger = FALSE;}
+			if (status.running == TRUE &&(!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();status.key_pressed = TRUE; status.goback_trigger = FALSE;}
 
 			if (status.running == FALSE && !digitalRead (S4)&& status.key_pressed == FALSE && (stepper_posi_tmp-stepper_posi)!= stepper_posi) {speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.fast_move);status.goback_trigger = FALSE;status.key_pressed = TRUE;}	
 				
-			if (status.running == FALSE && !digitalRead (S1)&& status.key_pressed == FALSE && status.thread == FALSE) {status.thread = TRUE; status.goback_trigger = TRUE;status.key_pressed = TRUE;stepper_posi_tmp = stepper_posi; speed_cntr_Move(configuration.thread_length,stepper_rad_sec);}	
+			if (status.running == FALSE && !digitalRead (S1)&& status.key_pressed == FALSE && status.thread == FALSE) {
+				
+				stepper_posi_tmp = stepper_posi;
+				if (configuration.thread_length > 0)
+				{speed_cntr_Move(-steps_toaccel,configuration.fast_move);
+				}
+				if (configuration.thread_length < 0)
+				{speed_cntr_Move(steps_toaccel,configuration.fast_move);
+				}
+				
+				delay(1000);
+				spindle_flag = 1;
+				
+				status.thread = TRUE; status.goback_trigger = TRUE;status.key_pressed = TRUE; 
+				
+				if (configuration.thread_length > 0) speed_cntr_Move(configuration.thread_length+steps_toaccel,stepper_rad_sec);
+				if (configuration.thread_length < 0) speed_cntr_Move(configuration.thread_length-steps_toaccel,stepper_rad_sec);
+				
+				
+				}	
 		    //  Auto---------------		
 		    if (status.running == FALSE && stepper_posi == (stepper_posi_tmp+configuration.thread_length) && status.goback_trigger == TRUE && mode2 == 1){delay(configuration.delay_move);speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.fast_move); status.thread = FALSE; status.goback_trigger = FALSE;}
 			
@@ -193,15 +245,15 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 		
 		// Schleifen --------------------------------------
 		if (mode == 1 && menue == 1){
-			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE; status.goback_trigger = FALSE;}
+			if (status.running == TRUE &&(!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();status.key_pressed = TRUE; status.goback_trigger = FALSE;}
 
-			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE && (stepper_posi_tmp-stepper_posi)!= stepper_posi) {speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.fast_move);status.goback_trigger = FALSE;status.key_pressed = TRUE;}
+			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE && (stepper_posi_tmp-stepper_posi)!= stepper_posi) {speed_cntr_Move((stepper_posi_tmp-stepper_posi),configuration.grind_speed);status.goback_trigger = FALSE;status.key_pressed = TRUE;}
 			
 			if (status.running == FALSE && !digitalRead (S1)&& status.key_pressed == FALSE && status.goback_trigger == FALSE) {status.goback_trigger = TRUE;status.key_pressed = TRUE;stepper_posi_tmp = stepper_posi; speed_cntr_Move(configuration.grind_way,configuration.grind_speed);status.dir = FALSE;}
 			//  Auto---------------
 			if(mode2 == 1 && status.goback_trigger == TRUE && status.running == FALSE ){ 
-			if (status.dir == FALSE && status.running == FALSE ) {delay(configuration.delay_move);speed_cntr_Move(-configuration.grind_way,configuration.grind_speed);status.dir = TRUE;}
-			if (status.dir == TRUE && status.running == FALSE ) {delay(configuration.delay_move);speed_cntr_Move(configuration.grind_way,configuration.grind_speed);status.dir = FALSE;}
+			if (status.dir == FALSE && status.running == FALSE ) {speed_cntr_Move(-configuration.grind_way,configuration.grind_speed);status.dir = TRUE;}
+			if (status.dir == TRUE && status.running == FALSE ) {speed_cntr_Move(configuration.grind_way,configuration.grind_speed);status.dir = FALSE;}
 			}
 			
 			// Toogle Auto---------------
@@ -211,23 +263,23 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 			}
 			
 			
-		// Drehen -----------------------------------------	
+//		 Drehen -----------------------------------------	
 		if (mode == 1 && menue == 2){ 
 			
-			if (status.running == TRUE && (!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE;}
+			if ((!digitalRead (S2) || !digitalRead (S3))&& status.key_pressed == FALSE) {decl_trigger();;status.key_pressed = TRUE;}
 				
-			if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
-			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.cutting_way,configuration.cutting_speed);status.key_pressed = TRUE;}
+			if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {stepper_posi_tmp = stepper_posi;speed_cntr_Move (configuration.cutting_way,stepper_rad_sec);status.key_pressed = TRUE;}
+			if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move ((stepper_posi_tmp-stepper_posi),configuration.fast_move);status.key_pressed = TRUE;}
 										
-		}
+		} 
 
 		// Bewegen ----------------------------------------
 		if (mode == 1 && menue == 3){
 			
-				  if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.move_way,configuration.move_slow_speed);status.key_pressed = TRUE;}
-				  if (status.running == FALSE &&!digitalRead (S2)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.move_way,configuration.move_slow_speed);status.key_pressed = TRUE;}
-				  if (status.running == FALSE &&!digitalRead (S3)&& status.key_pressed == FALSE) {speed_cntr_Move(configuration.move_way,configuration.move_fast_speed);status.key_pressed = TRUE;}
-				  if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.move_way,configuration.move_fast_speed);status.key_pressed = TRUE;}
+				  if (status.running == FALSE &&!digitalRead (S1)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.move_way,configuration.move_slow_speed);status.key_pressed = TRUE;}
+				  if (status.running == FALSE &&!digitalRead (S2)&& status.key_pressed == FALSE) {speed_cntr_Move(+configuration.move_way,configuration.move_slow_speed);status.key_pressed = TRUE;}
+				  if (status.running == FALSE &&!digitalRead (S3)&& status.key_pressed == FALSE) {speed_cntr_Move(-configuration.move_way,configuration.move_fast_speed);status.key_pressed = TRUE;}
+				  if (status.running == FALSE &&!digitalRead (S4)&& status.key_pressed == FALSE) {speed_cntr_Move(+configuration.move_way,configuration.move_fast_speed);status.key_pressed = TRUE;}
 		}
 		
 		
@@ -243,15 +295,23 @@ if ((!digitalRead(up) || !digitalRead(down)) && status.key_pressed == FALSE && s
 		   
 		   spindle_rpm =  (spindel_puls_s*60)/(resolution) ;
           if(status.running == FALSE){
-		   stepper_steps_pr = ((long)configuration.thread_pitch * steps_mm)/100;
+		   if (menue == 0) stepper_steps_pr = ((long)configuration.thread_pitch * steps_mm)/100;
+		   if (menue == 2) stepper_steps_pr = ((long)configuration.cutting_speed * steps_mm)/100;
 		   stepper_rad_sec = ((long)2*spindle_rpm*pi*stepper_steps_pr)/((long)FSPR*60);
 		   steps_toaccel = (long)stepper_rad_sec*stepper_rad_sec/(long)(((long)A_x20000*accel_stepper)/100);
 		   }
 					       
     }	
 	  
-	  
-    
+encAB     = (!digitalRead(encoder_PinA) << 1) + !digitalRead(encoder_PinB);
+encDelta += zeta[encState][encAB];
+encState  = encAB;
+if( encDelta == encRaster || encDelta == -encRaster )
+{   encDelta > 0 ? encoder_posi++ : encoder_posi--;
+    encDelta > 0 ? trigger_edit_number(+1) : trigger_edit_number(-1);
+    encDelta = 0;
+}  
+
     if(!(!digitalRead(encoder)||!digitalRead(S1)||!digitalRead(S2)||!digitalRead(S3)||!digitalRead(S4)||!digitalRead(S5)||!digitalRead(S6)||!digitalRead(left)||!digitalRead(right)||!digitalRead(up)||!digitalRead(down)||!digitalRead(encoder))) {status.key_pressed = FALSE;}
 ;
  
@@ -274,19 +334,19 @@ void print_menue ()
 	GLCD.FillRect(0,52,127,1,WHITE);
 	switch (menue){
 		case 0:
-		GLCD.CursorTo(6,0);
-		GLCD.print("Gewinde"); 
-		GLCD.EraseTextLine();
+		GLCD.CursorTo(1,0);
+		GLCD.print("     Gewinde        ");
+              	GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
 		GLCD.EraseTextLine();
 		
 		GLCD.CursorTo(1,3);
-		GLCD.print("Besch. Weg:");
-		GLCD.EraseTextLine();		
+		//GLCD.print("Position X:");
+		GLCD.EraseTextLine();	
 		
 		GLCD.CursorTo(1,2);
-		GLCD.print("Position:");
+		GLCD.print("Position Z:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,4);
 		GLCD.print("Gew. Laenge:");
@@ -326,8 +386,9 @@ void print_menue ()
 		
 		case 1:
 		GLCD.CursorTo(6,0);
-		GLCD.print("Schleifen");
-		GLCD.EraseTextLine();
+		GLCD.CursorTo(1,0);
+		GLCD.print("     Schleifen      ");
+                GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
 		GLCD.EraseTextLine();
@@ -371,8 +432,8 @@ void print_menue ()
 		break;
 		
 		case 2:
-		GLCD.CursorTo(6,0);
-		GLCD.print("Drehen");
+		GLCD.CursorTo(1,0);
+		GLCD.print("     Drehen         ");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
@@ -386,7 +447,7 @@ void print_menue ()
 		GLCD.print("Weg:");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,5);
-		GLCD.print("Geschw:");
+		GLCD.print("Vorschup f:");
 		
 		GLCD.EraseTextLine();
 		GLCD.FillRect(51,52,24,0);
@@ -397,14 +458,14 @@ void print_menue ()
 		}else
 		{
 			GLCD.CursorTo(0,7);
-			GLCD.print("< GO  |  Stop  | GO >");
+			GLCD.print("< GO  |  Stop  | Ret.");
 			GLCD.EraseTextLine();
 		}
 		break;
 		
 		case 3:
-		GLCD.CursorTo(6,0);
-		GLCD.print("Bewegen");
+		GLCD.CursorTo(1,0);
+		GLCD.print("     Bewegen        ");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("RPM:");
@@ -436,8 +497,8 @@ void print_menue ()
 		break;
 		
 		case 4:
-		GLCD.CursorTo(6,0);
-		GLCD.print("Optionen"); // fixed, danke Jürgen
+		GLCD.CursorTo(1,0);
+		GLCD.print("     Optionen       ");
 		GLCD.EraseTextLine();
 		GLCD.CursorTo(1,1);
 		GLCD.print("Verz.:");
@@ -507,15 +568,9 @@ void print_menue_numbers ()
 		  case 0: // Gewinde ---------------------------
 		  if (status.running == FALSE){
 			 GLCD.CursorTo(14,1);
-			GLCD.PrintNumber(spindle_angle);
-			GLCD.EraseTextLine();
-			  
-			GLCD.CursorTo(14,3);
-			GLCD.print((float)steps_toaccel/steps_mm);
+			GLCD.PrintNumber(spindle_rpm);
 			GLCD.EraseTextLine();
 				  
-			  
-						  
 			  GLCD.CursorTo(14,4);
 			  GLCD.print((float)configuration.thread_length/steps_mm);
 			  GLCD.EraseTextLine();
@@ -525,7 +580,12 @@ void print_menue_numbers ()
 			  }
 			  GLCD.CursorTo(14,2);
 			  GLCD.print((float)stepper_posi/steps_mm);
+			  
 			  GLCD.EraseTextLine();
+	         GLCD.CursorTo(14,3);
+			//GLCD.print((float)stepperB_posi/stepsB_mm);
+			GLCD.EraseTextLine();
+				  
 		  
 		  break;
 		  
@@ -617,16 +677,9 @@ void print_menue_numbers ()
 }
 
 void doEncoderB(){
-	
- if (digitalRead(encoder_PinA) == digitalRead(encoder_PinB)) {
-	 encoder_posi--;
-	 trigger_edit_number(-1);
-	 } 
-	 
-	 else {
-	 encoder_posi++;
-	 trigger_edit_number(+1);
- }
+  
+rotation = TRUE;
+ 
 }
 // Interrupt on A changing state
 void doSpindleA(){
@@ -634,13 +687,9 @@ void doSpindleA(){
   spindle_Bnew^spindle_Aold ? spindle_angle++:spindle_angle--;
   spindle_Bnew^spindle_Aold ? spindle_dir = CW :spindle_dir = CCW ;
   uiInterruptCountHelp++;
-  
-  // winkelpositionen !! 0 und resolution liegen auf einem punkt, 0 = resolution!!
-  if (spindle_angle >= resolution  ){spindle_angle = 0; }
-  if (spindle_angle < 0){spindle_angle = resolution-1 ;}
 
  // Einkoppeln der Spindel
- if (digitalRead (spindle_PinZ) && status.thread == TRUE && status.backlash == FALSE)
+ if (spindle_angle == spindle_start && status.thread == TRUE && status.backlash == FALSE && spindle_flag == 3)
  {	 srd.run_state = ACCEL;
 	 srd.accel_count = 0;
 	 
@@ -651,7 +700,7 @@ void doSpindleA(){
  }	
 	
  if (srd.run_state == AUTO)
- {
+ {	
  
 	 fehler = fehler-stepper_steps_pr;
 	 if (fehler < 0 )
@@ -677,11 +726,9 @@ void doSpindleB(){
   spindle_Bnew^spindle_Aold ? spindle_dir = CW :spindle_dir = CCW ;
   uiInterruptCountHelp++;
   // winkelpositionen !! 0 und resolution liegen auf einem punkt, 0 = resolution!!
-  if (spindle_angle >= resolution  ){spindle_angle = 0; }
-  if (spindle_angle < 0){spindle_angle = resolution-1 ;}
-	  
+
 // Einkoppeln der Spindel 
-	 if (digitalRead (spindle_PinZ) && status.thread == TRUE && status.backlash == FALSE)
+	 if (spindle_angle == spindle_start && status.thread == TRUE && status.backlash == FALSE && spindle_flag == 3)
 	 {	 srd.run_state = ACCEL;
 		 srd.accel_count = 0;
 		 
@@ -693,7 +740,7 @@ void doSpindleB(){
 	
 
  if (srd.run_state == AUTO)
- {
+ { 
 	 
 	 fehler = fehler-stepper_steps_pr;
 	 if (fehler < 0 )
@@ -720,13 +767,13 @@ void sm_driver_StepOutput()
 {
 	
 	if (srd.dir == CW){
-		digitalWrite(dirpin, HIGH);   // sets the LED on
+		digitalWrite(dirpin, LOW);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
 		if(srd.run_state != BACKLASH) stepper_posi++;
 	}
 	else{
 		if(srd.run_state != BACKLASH) stepper_posi--;
-		digitalWrite(dirpin, LOW);   // sets the LED on
+		digitalWrite(dirpin, HIGH);   // sets the LED on
 		digitalWrite(steppin, LOW);   // sets the LED on
 	}
    delayMicroseconds(stepper_delay);
@@ -734,9 +781,33 @@ void sm_driver_StepOutput()
 
 }
 
+void B_sm_driver_StepOutput()
+{
+	
+	if (encoderEXT_dir == CW){
+		digitalWrite(dirpinB, HIGH);   // sets the LED on
+		digitalWrite(steppinB, LOW);   // sets the LED on
+                if ( backlashB_count < default_backlash_moveB)	
+                {backlashB_count ++;}
+                else {stepperB_posi++;}
+		
+	}
+	else{
+		
+		digitalWrite(dirpinB, LOW);   // sets the LED on
+		digitalWrite(steppinB, LOW);   // sets the LED on
+                if ( backlashB_count > 0)	
+                {backlashB_count --;}
+                else {stepperB_posi--;}
+	}
+   delayMicroseconds(stepper_delay);
+   digitalWrite(steppinB, HIGH);   // sets the LED on
+
+}
 
 
-void speed_cntr_Move(signed int step, unsigned int speed)
+
+void speed_cntr_Move(signed long step, unsigned int speed)
 {
 	
 	//! Number of steps before we hit max speed.
@@ -823,7 +894,6 @@ void speed_cntr_Move(signed int step, unsigned int speed)
 		srd.decel_start = step + srd.decel_val;
 
 		// If the maximum speed is so low that we dont need to go via accelration state.
-				
 		if( srd.step_delay <= srd.min_delay){
 			/*srd.step_delay = srd.min_delay;
 			srd.run_state = RUN;*/
@@ -842,6 +912,7 @@ void speed_cntr_Move(signed int step, unsigned int speed)
 			else srd.run_state = ACCEL;
 			
 			}
+					
 		
 		if (status.thread == FALSE ||status.backlash_trigger == TRUE)
 		{		
@@ -881,32 +952,74 @@ ISR ( TIMER1_COMPA_vect )
 	// Counting steps when moving.
 	// Keep track of remainder from new_step-delay calculation to incrase accurancy
 	static unsigned int rest = 0;
+	static unsigned int rest_temp = 0;
 	
 	OCR1A = srd.step_delay;
 
 	switch(srd.run_state) {
 		case STOP:	
-              fehler = resolution/2;	
+        
+		fehler = resolution/2;	
 		step_count = 0;
 		rest = 0;
 		// Stop Timer/Counter 1.
 		TCCR1B &= ~((1<<CS12)|(1<<CS11)|(1<<CS10));
 		if(status.thread == FALSE)status.running = FALSE;
 		
+		
+						
 		break;
-				
+		
+		case ACCEL_DUMMY:
+		if (spindle_flag == 1)
+		{	spindle_flag = 2;
+			spindle_posi = 0;
+			step_count_temp = step_count;
+			srd_temp.accel_count = srd.accel_count;
+			new_step_delay_temp=new_step_delay;
+						
+		}		
+		step_count++;
+		srd.accel_count++;
+		new_step_delay = srd.step_delay - (((2 * (long)srd.step_delay) + rest)/(4 * srd.accel_count + 1));
+		rest = ((2 * (long)srd.step_delay)+rest)%(4 * srd.accel_count + 1);
+		
+		// Check if we hitted max speed.
+		if(new_step_delay <= srd.min_delay) {
+			
+						step_count = step_count_temp;
+						srd.accel_count = srd_temp.accel_count;	
+						new_step_delay = new_step_delay_temp;
+						if (spindle_posi > resolution)
+						{ spindle_start = resolution -( spindle_posi % resolution);
+						}else spindle_start = resolution - spindle_posi;
+						
+						spindle_flag = 3;
+						srd.run_state = STOP;
+						
+		}
 		break;
 
 		case ACCEL:
-		sm_driver_StepOutput();
+		if (spindle_flag == 1) {srd.run_state = ACCEL_DUMMY; }
+		else {sm_driver_StepOutput();
 		step_count++;
 		srd.accel_count++;
 		new_step_delay = srd.step_delay - (((2 * (long)srd.step_delay) + rest)/(4 * srd.accel_count + 1));
 		rest = ((2 * (long)srd.step_delay)+rest)%(4 * srd.accel_count + 1);
 		// Chech if we should start decelration.
-		if(step_count >= srd.decel_start) {
+		if(step_count >= srd.decel_start && mode == 0  && digitalRead (S1) && digitalRead (S2)&& digitalRead (S3) && digitalRead (S4))
+		{
+				srd.accel_count = srd.decel_val;
+				srd.run_state = DECEL;
+			
+		}
+		
+		else if(step_count >= srd.decel_start && mode == 1 )
+		{
 			srd.accel_count = srd.decel_val;
 			srd.run_state = DECEL;
+			
 		}
 		// Check if we hitted max speed.
 		else if(new_step_delay <= srd.min_delay) {
@@ -914,10 +1027,12 @@ ISR ( TIMER1_COMPA_vect )
 			new_step_delay = srd.min_delay;
 			rest = 0;
 			if (status.thread == TRUE)
-			{srd.run_state = AUTO;
+			{	TCCR1B &= ~((1<<CS12)|(1<<CS11)|(1<<CS10));
+				srd.run_state = AUTO;
 			status.thread = FALSE;
 			 }else srd.run_state = RUN;
-		}
+			}
+			}
 		break;
 		
 		case BACKLASH:
@@ -935,8 +1050,9 @@ ISR ( TIMER1_COMPA_vect )
                                                          
                                   status.backlash = FALSE;
                                   status.encoder_trigger =FALSE;	
-                                  if(status.thread == TRUE) srd.run_state = STOP;
-                                  else {srd.run_state = ACCEL;
+                                  if(status.thread == TRUE) srd.run_state = ACCEL_DUMMY;
+									 
+								  else {srd.run_state = ACCEL;
                                 
                                   OCR1A = 10;
                                   // Set Timer/Counter to divide clock by 8
@@ -952,13 +1068,36 @@ ISR ( TIMER1_COMPA_vect )
 		step_count++;
 		new_step_delay = srd.min_delay;
 		// Chech if we should start decelration.
-		if(step_count >= srd.decel_start && digitalRead (S1) && digitalRead (S2)&& digitalRead (S3) && digitalRead (S4)) 
+		if(step_count >= srd.decel_start) 
+		{
+			if (mode == 0  && digitalRead (S1) && digitalRead (S2)&& digitalRead (S3) && digitalRead (S4))
+			{
+				srd.accel_count = srd.decel_val;
+				// Start decelration with same delay as accel ended with.
+				new_step_delay = last_accel_delay;
+				srd.run_state = DECEL;
+			}
+			if (mode == 1)
+			{
+				srd.accel_count = srd.decel_val;
+				// Start decelration with same delay as accel ended with.
+				new_step_delay = last_accel_delay;
+				srd.run_state = DECEL;
+			}
+			
+			
+		}
+
+              else if (step_count >= srd.decel_start && mode != 0 ) 
 		{
 			srd.accel_count = srd.decel_val;
 			// Start decelration with same delay as accel ended with.
 			new_step_delay = last_accel_delay;
 			srd.run_state = DECEL;
 		}
+
+
+
 		break;
 		
 		case AUTO: 
@@ -1006,27 +1145,35 @@ void io_init()
 	digitalWrite(left, HIGH);       // turn on pullup resistors
 	pinMode(encoder, INPUT);           // set pin to input
 	digitalWrite(encoder, HIGH);       // turn on pullup resistors
-	
+
+        pinMode(encoder_PinA, INPUT);
+ 	pinMode(encoder_PinB, INPUT);
+        pinMode(encoderEXT_PinA, INPUT);
+        pinMode(encoderEXT_PinB, INPUT);
+
 	pinMode(spindle_PinA, INPUT);
 	pinMode(spindle_PinB, INPUT);
         pinMode(spindle_PinZ, INPUT);
-	pinMode(encoder_PinA, INPUT);
-	pinMode(encoder_PinB, INPUT);
+	
 	
 	pinMode(led1, OUTPUT);           // set pin to output
 	pinMode(led2, OUTPUT);           // set pin to output
 	pinMode(led3, OUTPUT);           // set pin to output
 	pinMode(led4, OUTPUT);           // set pin to output
 	pinMode(tweeter, OUTPUT);        // set pin to output
+        pinMode(relais, OUTPUT);        // set pin to output
 
 	pinMode(out3, OUTPUT);           // set pin to output
 	pinMode(dirpin, OUTPUT);		 // set pin to output
 	pinMode(steppin, OUTPUT);		 // set pin to output
+        pinMode(dirpinB, OUTPUT);		 // set pin to output
+	pinMode(steppinB, OUTPUT);		 // set pin to output
 	
 	digitalWrite(led1, HIGH);		 // sets the LED off
 	digitalWrite(led2, HIGH);		 // sets the LED off
 	digitalWrite(led3, HIGH);		 // sets the LED off
 	digitalWrite(led4, HIGH);		 // sets the LED off
+        digitalWrite(relais, HIGH);		 // sets the LED off
 	
 	digitalWrite(dirpin, HIGH);		 // sets the LED off
 	digitalWrite(steppin, HIGH);     // sets the LED off
@@ -1083,32 +1230,32 @@ void  trigger_edit_number(int value)
 	
 	if (menue == 0)
 	{	if (edit == 1)  stepper_posi += value* (steps_mm) ;
-		if (edit == 3)  configuration.thread_length += value * (steps_mm);
-		if (edit == 4)  configuration.thread_pitch += value;
+		if (edit == 3)  configuration.thread_length += value * (steps_mm/4);
+		if (edit == 4)  configuration.thread_pitch += value * 5;
 	}
 	if (menue == 1)
 	{
 		if (edit == 1)  stepper_posi += value * (steps_mm);
-		if (edit == 3)  configuration.grind_way += value* (steps_mm);
-		if (edit == 4)  configuration. grind_speed += (value*2*pi)/(FSPR);
+		if (edit == 3)  configuration.grind_way += value* (steps_mm/4);
+		if (edit == 4)  configuration. grind_speed += value*10;
 	}
 	if (menue == 2)
 	{
 		if (edit == 1)  stepper_posi += value * (steps_mm);
-		if (edit == 3)  configuration.cutting_way += value* (steps_mm);
-		if (edit == 4)  configuration.cutting_speed +=(value*2*pi)/(FSPR);
+		if (edit == 3)  configuration.cutting_way += value* (steps_mm/4);
+		if (edit == 4)  configuration.cutting_speed +=value*2;
 	}
 	if (menue == 3)
 	{	if (edit == 1)  stepper_posi += value * (steps_mm);
-		if (edit == 2)  configuration.move_way += value * (steps_mm);
-		if (edit == 3)  configuration.move_fast_speed += (value*2*pi)/(FSPR)*100;
-		if (edit == 4)  configuration.move_slow_speed += (value*2*pi)/(FSPR)*100;
+		if (edit == 2)  configuration.move_way += value * (steps_mm/4);
+		if (edit == 3)  configuration.move_fast_speed += value*10;
+		if (edit == 4)  configuration.move_slow_speed += value*10;
 	}
 	if (menue == 4)
 	{
-		if (edit == 0)  configuration.delay_move += value*10;
-		if (edit == 1)  configuration.fast_move += (value*2*pi)/(FSPR)*100;
-		if (edit == 2)  configuration.slow_move += (value*2*pi)/(FSPR)*100;
+		if (edit == 0)  configuration.delay_move += value*100;
+		if (edit == 1)  configuration.fast_move += value*10;
+		if (edit == 2)  configuration.slow_move += value*10;
 		if (edit == 3)  configuration.backlash_move += value;
 	}
 }
@@ -1119,6 +1266,7 @@ void  write_edit_number(int value)
 	
 	if (menue == 0)
 	{	if (edit == 1)  stepper_posi = value;
+                if (edit == 2)  stepperB_posi = value;
 		if (edit == 3)  configuration.thread_length = value;
 		if (edit == 4)  configuration.thread_pitch = value;
 	}
@@ -1167,7 +1315,7 @@ configuration.fast_move =default_fast_move ;
 }
 
 void decl_trigger()
-{
+{	TCCR1B |= ((0<<CS12)|(1<<CS11)|(0<<CS10));
 	srd.accel_count = srd.decel_val;
 	// Start decelration with same delay as accel ended with.
 	new_step_delay = last_accel_delay;
@@ -1175,5 +1323,23 @@ void decl_trigger()
 }
 
 void doSpindleZ(){
+
+    
+  digitalWrite(led3, !digitalRead(led3));
+  spindle_angle = 0;
+ 
+}
+
+void doEncoderEXTB(){
+  encoderEXT_Bnew^encoderEXT_Aold ? encoderEXT_posi++:encoderEXT_posi--;
+  encoderEXT_Bnew^encoderEXT_Aold ? encoderEXT_dir = CCW :encoderEXT_dir = CW ;
+  encoderEXT_Aold=digitalRead(encoderEXT_PinA); 
+  B_sm_driver_StepOutput();
   
+}
+void doEncoderEXTA(){
+  encoderEXT_Bnew=digitalRead(encoderEXT_PinB);
+  encoderEXT_Bnew^encoderEXT_Aold ? encoderEXT_posi++:encoderEXT_posi--;
+  encoderEXT_Bnew^encoderEXT_Aold ? encoderEXT_dir = CCW :encoderEXT_dir = CW ;
+  B_sm_driver_StepOutput();
 }
