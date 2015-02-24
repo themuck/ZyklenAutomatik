@@ -1,0 +1,10 @@
+Thumbs.db
+*.bak
+*~
+.*
+*.o
+*.hex
+*.elf
+.dep/
+.lib/
+build-*/
