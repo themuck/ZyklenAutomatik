@@ -17,7 +17,9 @@
 -....
 */
 
-#include <glcd.h>
+#include "ZyklenAutomatik.h"
+#include <openGLCD.h>
+
 #include "ZyklenAutomatik_Config.h"
 #include <fonts/allFonts.h>
 #include "EEPROMAnything.h"
