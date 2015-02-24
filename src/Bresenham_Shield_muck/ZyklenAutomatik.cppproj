@@ -12,9 +12,9 @@
     <OutputFileName>$(MSBuildProjectName)</OutputFileName>
     <OutputFileExtension>.elf</OutputFileExtension>
     <OutputDirectory>$(MSBuildProjectDirectory)\$(Configuration)</OutputDirectory>
-    <AssemblyName>Zyklenautomatik</AssemblyName>
-    <Name>Zyklenautomatik</Name>
-    <RootNamespace>Zyklenautomatik</RootNamespace>
+    <AssemblyName>ZyklenAutomatik</AssemblyName>
+    <Name>ZyklenAutomatik</Name>
+    <RootNamespace>ZyklenAutomatik</RootNamespace>
     <ToolchainFlavour>Native</ToolchainFlavour>
     <KeepTimersRunning>true</KeepTimersRunning>
     <OverrideVtor>false</OverrideVtor>
@@ -606,7 +606,7 @@ location.sketchbook=C:\Users\Malte\Documents\Arduino
     </VisualMicroSettings>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="Zyklenautomatik.ino">
+    <None Include="ZyklenAutomatik.ino">
       <SubType>compile</SubType>
     </None>
   </ItemGroup>
@@ -617,7 +617,7 @@ location.sketchbook=C:\Users\Malte\Documents\Arduino
     <Compile Include="EEPROMAnything.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="Visual Micro\.Zyklenautomatik.vsarduino.h">
+    <Compile Include="Visual Micro\.ZyklenAutomatik.vsarduino.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="ZyklenAutomatik_Config.h">
